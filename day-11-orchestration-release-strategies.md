@@ -1479,3 +1479,1030 @@ You've implemented a complete orchestration and deployment solution with:
 - ✅ Production-ready pipelines
 
 This is enterprise-grade DevOps! 🚀
+
+
+---
+
+## Part 7: Implementing Release Gates
+
+### What are Release Gates?
+
+Release gates are automated checks that control the flow of deployments. They act as quality gates that must pass before a deployment can proceed to the next stage.
+
+### Why Use Release Gates?
+
+- **Quality Assurance**: Ensure environment is ready
+- **Risk Mitigation**: Prevent deployments during issues
+- **Compliance**: Enforce organizational policies
+- **Automation**: Reduce manual intervention
+- **Visibility**: Track gate status and history
+
+### Types of Gates
+
+1. **Pre-Deployment Gates**: Run before deployment starts
+2. **Post-Deployment Gates**: Run after deployment completes
+3. **Approval Gates**: Require human approval
+
+### Gate Types Available
+
+- **Invoke Azure Function**: Custom logic
+- **Query Work Items**: Check for blocking bugs
+- **Invoke REST API**: External system checks
+- **Query Azure Monitor Alerts**: Check for active incidents
+- **Manual Approval**: Human decision point
+
+---
+
+### Lab 7.1: Pre-Deployment Gates
+
+Pre-deployment gates ensure the environment is ready before deploying.
+
+#### 1. Create Azure Function for Pre-Deployment Check
+
+```javascript
+// Create file: gates/pre-deployment-check.js
+
+module.exports = async function (context, req) {
+    context.log('Pre-deployment gate check started');
+    
+    const environment = req.query.environment || req.body?.environment;
+    const version = req.query.version || req.body?.version;
+    
+    // Check 1: No active incidents
+    const incidents = await checkActiveIncidents(environment);
+    if (incidents.length > 0) {
+        context.res = {
+            status: 400,
+            body: {
+                gatePassed: false,
+                reason: `Active incidents found: ${incidents.length}`,
+                incidents: incidents
+            }
+        };
+        return;
+    }
+    
+    // Check 2: System health
+    const health = await checkSystemHealth(environment);
+    if (health.status !== 'healthy') {
+        context.res = {
+            status: 400,
+            body: {
+                gatePassed: false,
+                reason: 'System is not healthy',
+                health: health
+            }
+        };
+        return;
+    }
+    
+    // Check 3: Business hours (optional)
+    const isBusinessHours = checkBusinessHours();
+    if (!isBusinessHours && environment === 'production') {
+        context.res = {
+            status: 400,
+            body: {
+                gatePassed: false,
+                reason: 'Deployment outside business hours',
+                currentTime: new Date().toISOString()
+            }
+        };
+        return;
+    }
+    
+    // Check 4: Resource availability
+    const resources = await checkResourceAvailability(environment);
+    if (!resources.available) {
+        context.res = {
+            status: 400,
+            body: {
+                gatePassed: false,
+                reason: 'Insufficient resources',
+                resources: resources
+            }
+        };
+        return;
+    }
+    
+    // All checks passed
+    context.res = {
+        status: 200,
+        body: {
+            gatePassed: true,
+            message: 'All pre-deployment checks passed',
+            environment: environment,
+            version: version,
+            timestamp: new Date().toISOString()
+        }
+    };
+};
+
+async function checkActiveIncidents(environment) {
+    // Simulate checking incident management system
+    // In real scenario, query ServiceNow, PagerDuty, etc.
+    return []; // No incidents
+}
+
+async function checkSystemHealth(environment) {
+    // Simulate health check
+    // In real scenario, query monitoring system
+    return {
+        status: 'healthy',
+        cpu: 45,
+        memory: 60,
+        disk: 70
+    };
+}
+
+function checkBusinessHours() {
+    const now = new Date();
+    const hour = now.getHours();
+    const day = now.getDay();
+    
+    // Monday-Friday, 9 AM - 5 PM
+    return day >= 1 && day <= 5 && hour >= 9 && hour < 17;
+}
+
+async function checkResourceAvailability(environment) {
+    // Simulate resource check
+    return {
+        available: true,
+        cpu: 80,
+        memory: 75,
+        disk: 85
+    };
+}
+```
+
+#### 2. Create Mock REST API for Gate Checks
+
+```javascript
+// Create file: gates/gate-api.js
+// Simple Express API for gate checks
+
+const express = require('express');
+const app = express();
+app.use(express.json());
+
+// Pre-deployment gate endpoint
+app.post('/api/gates/pre-deployment', (req, res) => {
+    const { environment, version } = req.body;
+    
+    console.log(`Pre-deployment check for ${environment} v${version}`);
+    
+    // Simulate checks
+    const checks = {
+        incidents: { passed: true, count: 0 },
+        health: { passed: true, status: 'healthy' },
+        resources: { passed: true, available: 85 },
+        businessHours: { passed: true, current: new Date().toISOString() }
+    };
+    
+    const allPassed = Object.values(checks).every(c => c.passed);
+    
+    res.json({
+        gatePassed: allPassed,
+        checks: checks,
+        environment: environment,
+        version: version,
+        timestamp: new Date().toISOString()
+    });
+});
+
+// Post-deployment gate endpoint
+app.post('/api/gates/post-deployment', (req, res) => {
+    const { environment, version } = req.body;
+    
+    console.log(`Post-deployment check for ${environment} v${version}`);
+    
+    // Simulate validation checks
+    const validations = {
+        healthCheck: { passed: true, responseTime: 45 },
+        smokeTests: { passed: true, testsPassed: 10, testsFailed: 0 },
+        errorRate: { passed: true, rate: 0.1 },
+        responseTime: { passed: true, avg: 120 }
+    };
+    
+    const allPassed = Object.values(validations).every(v => v.passed);
+    
+    res.json({
+        gatePassed: allPassed,
+        validations: validations,
+        environment: environment,
+        version: version,
+        timestamp: new Date().toISOString()
+    });
+});
+
+// Change approval check
+app.get('/api/gates/change-approval', (req, res) => {
+    const { changeId } = req.query;
+    
+    // Simulate checking change management system
+    const approval = {
+        changeId: changeId,
+        status: 'approved',
+        approver: 'john.doe@example.com',
+        approvedAt: new Date().toISOString()
+    };
+    
+    res.json({
+        gatePassed: approval.status === 'approved',
+        approval: approval
+    });
+});
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+    console.log(`Gate API running on port ${PORT}`);
+});
+
+module.exports = app;
+```
+
+#### 3. Configure Pre-Deployment Gates in Pipeline
+
+```yaml
+# Add to azure-pipelines-vm.yml
+
+stages:
+# ... previous stages ...
+
+- stage: DeployProduction
+  displayName: 'Deploy to Production'
+  dependsOn: SmokeTestBlue
+  jobs:
+  - deployment: DeployProdJob
+    displayName: 'Deploy to Production'
+    environment: 'Production'
+    pool:
+      vmImage: 'ubuntu-latest'
+    strategy:
+      runOnce:
+        # PRE-DEPLOYMENT GATES
+        preDeploy:
+          steps:
+          - task: InvokeRESTAPI@1
+            displayName: 'Gate: Check Active Incidents'
+            inputs:
+              connectionType: 'connectedServiceName'
+              serviceConnection: 'GateAPI'
+              method: 'POST'
+              urlSuffix: '/api/gates/pre-deployment'
+              body: |
+                {
+                  "environment": "production",
+                  "version": "$(Build.BuildNumber)"
+                }
+              waitForCompletion: 'true'
+              successCriteria: 'eq(root.gatePassed, true)'
+          
+          - task: PowerShell@2
+            displayName: 'Gate: Verify Business Hours'
+            inputs:
+              targetType: 'inline'
+              script: |
+                $hour = (Get-Date).Hour
+                $day = (Get-Date).DayOfWeek
+                
+                if ($day -ge 1 -and $day -le 5 -and $hour -ge 9 -and $hour -lt 17) {
+                    Write-Host "✓ Within business hours"
+                    exit 0
+                } else {
+                    Write-Host "✗ Outside business hours"
+                    Write-Host "Current time: $(Get-Date)"
+                    exit 1
+                }
+          
+          - task: AzureCLI@2
+            displayName: 'Gate: Check Azure Monitor Alerts'
+            inputs:
+              azureSubscription: 'Azure-Connection'
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                # Check for active alerts
+                alerts=$(az monitor metrics alert list \
+                  --resource-group myResourceGroup \
+                  --query "[?enabled==\`true\`]" \
+                  --output json)
+                
+                alert_count=$(echo $alerts | jq '. | length')
+                
+                if [ $alert_count -eq 0 ]; then
+                  echo "✓ No active alerts"
+                  exit 0
+                else
+                  echo "✗ Active alerts found: $alert_count"
+                  echo $alerts | jq '.'
+                  exit 1
+                fi
+          
+          - script: |
+              echo "========================================="
+              echo "All Pre-Deployment Gates Passed"
+              echo "Environment: Production"
+              echo "Version: $(Build.BuildNumber)"
+              echo "Time: $(date)"
+              echo "========================================="
+            displayName: 'Pre-Deployment Gates Summary'
+        
+        # DEPLOYMENT
+        deploy:
+          steps:
+          - download: current
+            artifact: drop
+          
+          - task: SSH@0
+            inputs:
+              sshEndpoint: 'VM-SSH-Connection'
+              runOptions: 'inline'
+              inline: |
+                cd /tmp/deployment
+                ./scripts/deploy.sh $(Build.BuildNumber) blue 3001
+            displayName: 'Deploy to Production'
+        
+        # POST-DEPLOYMENT GATES
+        postDeploy:
+          steps:
+          - task: InvokeRESTAPI@1
+            displayName: 'Gate: Post-Deployment Validation'
+            inputs:
+              connectionType: 'connectedServiceName'
+              serviceConnection: 'GateAPI'
+              method: 'POST'
+              urlSuffix: '/api/gates/post-deployment'
+              body: |
+                {
+                  "environment": "production",
+                  "version": "$(Build.BuildNumber)"
+                }
+              waitForCompletion: 'true'
+              successCriteria: 'eq(root.gatePassed, true)'
+          
+          - task: SSH@0
+            displayName: 'Gate: Smoke Tests'
+            inputs:
+              sshEndpoint: 'VM-SSH-Connection'
+              runOptions: 'inline'
+              inline: |
+                echo "Running post-deployment smoke tests..."
+                
+                # Test 1: Health check
+                health=$(curl -s http://localhost:3001/health)
+                status=$(echo $health | jq -r '.status')
+                
+                if [ "$status" != "healthy" ]; then
+                  echo "✗ Health check failed"
+                  exit 1
+                fi
+                echo "✓ Health check passed"
+                
+                # Test 2: Response time
+                start=$(date +%s%N)
+                curl -s http://localhost:3001/ > /dev/null
+                end=$(date +%s%N)
+                duration=$(( (end - start) / 1000000 ))
+                
+                if [ $duration -gt 1000 ]; then
+                  echo "✗ Response time too high: ${duration}ms"
+                  exit 1
+                fi
+                echo "✓ Response time acceptable: ${duration}ms"
+                
+                # Test 3: Error rate
+                for i in {1..10}; do
+                  status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3001/)
+                  if [ $status -ne 200 ]; then
+                    echo "✗ Request failed with status $status"
+                    exit 1
+                  fi
+                done
+                echo "✓ All requests successful"
+                
+                echo "✓ All smoke tests passed"
+          
+          - script: |
+              echo "========================================="
+              echo "All Post-Deployment Gates Passed"
+              echo "Deployment Successful"
+              echo "========================================="
+            displayName: 'Post-Deployment Gates Summary'
+```
+
+---
+
+### Lab 7.2: Approval Gates
+
+Approval gates require human intervention before proceeding.
+
+#### 1. Configure Manual Approval in Environment
+
+```yaml
+# In Azure DevOps UI:
+# 1. Go to Pipelines → Environments
+# 2. Select "Production" environment
+# 3. Click "..." → "Approvals and checks"
+# 4. Click "Approvals"
+
+# Configuration:
+Approvers: 
+  - john.doe@example.com
+  - jane.smith@example.com
+
+Minimum number of approvers: 2
+
+Timeout: 30 days
+
+Instructions for approvers:
+"""
+Please review the following before approving:
+1. Check deployment summary
+2. Verify all gates passed
+3. Review change ticket
+4. Confirm business approval
+5. Check monitoring dashboards
+"""
+
+# Advanced options:
+☑ Allow approvers to approve their own runs
+☐ Reassign approvals to the original approver when run is retried
+```
+
+#### 2. Create Approval Pipeline with Gates
+
+```yaml
+# Create file: azure-pipelines-with-approvals.yml
+
+trigger:
+  branches:
+    include:
+      - main
+
+variables:
+  vmImageName: 'ubuntu-latest'
+  appVersion: '$(Build.BuildNumber)'
+
+stages:
+# Build Stage
+- stage: Build
+  displayName: 'Build Application'
+  jobs:
+  - job: BuildJob
+    pool:
+      vmImage: $(vmImageName)
+    steps:
+    - task: ArchiveFiles@2
+      inputs:
+        rootFolderOrFile: '$(Build.SourcesDirectory)/app'
+        archiveFile: '$(Build.ArtifactStagingDirectory)/app-$(appVersion).zip'
+    - publish: $(Build.ArtifactStagingDirectory)
+      artifact: drop
+
+# Deploy to Dev (No gates)
+- stage: DeployDev
+  displayName: 'Deploy to Development'
+  dependsOn: Build
+  jobs:
+  - deployment: DeployDevJob
+    environment: 'Development'
+    pool:
+      vmImage: $(vmImageName)
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - script: echo "Deploying to Dev..."
+            displayName: 'Deploy to Dev'
+
+# Deploy to Staging (Pre-deployment gates only)
+- stage: DeployStaging
+  displayName: 'Deploy to Staging'
+  dependsOn: DeployDev
+  jobs:
+  - deployment: DeployStagingJob
+    environment: 'Staging'
+    pool:
+      vmImage: $(vmImageName)
+    strategy:
+      runOnce:
+        preDeploy:
+          steps:
+          - task: InvokeRESTAPI@1
+            displayName: 'Pre-Gate: Check System Health'
+            inputs:
+              connectionType: 'connectedServiceName'
+              serviceConnection: 'GateAPI'
+              method: 'POST'
+              urlSuffix: '/api/gates/pre-deployment'
+              body: '{"environment": "staging", "version": "$(appVersion)"}'
+              successCriteria: 'eq(root.gatePassed, true)'
+        
+        deploy:
+          steps:
+          - script: echo "Deploying to Staging..."
+            displayName: 'Deploy to Staging'
+
+# Deploy to Production (All gates + Approval)
+- stage: DeployProduction
+  displayName: 'Deploy to Production'
+  dependsOn: DeployStaging
+  jobs:
+  - deployment: DeployProductionJob
+    environment: 'Production'  # Has approval configured
+    pool:
+      vmImage: $(vmImageName)
+    strategy:
+      runOnce:
+        # Pre-deployment gates
+        preDeploy:
+          steps:
+          - script: |
+              echo "========================================="
+              echo "PRE-DEPLOYMENT GATES"
+              echo "========================================="
+            displayName: 'Pre-Deployment Gate Header'
+          
+          - task: InvokeRESTAPI@1
+            displayName: 'Gate 1: Check Active Incidents'
+            inputs:
+              connectionType: 'connectedServiceName'
+              serviceConnection: 'GateAPI'
+              method: 'POST'
+              urlSuffix: '/api/gates/pre-deployment'
+              body: '{"environment": "production", "version": "$(appVersion)"}'
+              successCriteria: 'eq(root.gatePassed, true)'
+          
+          - task: InvokeRESTAPI@1
+            displayName: 'Gate 2: Verify Change Approval'
+            inputs:
+              connectionType: 'connectedServiceName'
+              serviceConnection: 'GateAPI'
+              method: 'GET'
+              urlSuffix: '/api/gates/change-approval?changeId=$(Build.BuildNumber)'
+              successCriteria: 'eq(root.gatePassed, true)'
+          
+          - task: PowerShell@2
+            displayName: 'Gate 3: Check Deployment Window'
+            inputs:
+              targetType: 'inline'
+              script: |
+                $hour = (Get-Date).Hour
+                Write-Host "Current hour: $hour"
+                
+                # Allow deployments 9 AM - 5 PM
+                if ($hour -ge 9 -and $hour -lt 17) {
+                    Write-Host "✓ Within deployment window"
+                } else {
+                    Write-Host "✗ Outside deployment window"
+                    exit 1
+                }
+          
+          - script: |
+              echo "✓ All pre-deployment gates passed"
+              echo "Waiting for manual approval..."
+            displayName: 'Pre-Deployment Gates Summary'
+        
+        # Deployment (runs after approval)
+        deploy:
+          steps:
+          - script: |
+              echo "========================================="
+              echo "DEPLOYMENT TO PRODUCTION"
+              echo "Approved by: $(Build.RequestedFor)"
+              echo "Version: $(appVersion)"
+              echo "========================================="
+            displayName: 'Deployment Header'
+          
+          - download: current
+            artifact: drop
+          
+          - script: echo "Deploying to Production..."
+            displayName: 'Deploy Application'
+        
+        # Post-deployment gates
+        postDeploy:
+          steps:
+          - script: |
+              echo "========================================="
+              echo "POST-DEPLOYMENT GATES"
+              echo "========================================="
+            displayName: 'Post-Deployment Gate Header'
+          
+          - task: InvokeRESTAPI@1
+            displayName: 'Gate 1: Post-Deployment Validation'
+            inputs:
+              connectionType: 'connectedServiceName'
+              serviceConnection: 'GateAPI'
+              method: 'POST'
+              urlSuffix: '/api/gates/post-deployment'
+              body: '{"environment": "production", "version": "$(appVersion)"}'
+              successCriteria: 'eq(root.gatePassed, true)'
+          
+          - script: |
+              echo "Running health checks..."
+              # Simulate health check
+              sleep 5
+              echo "✓ Health check passed"
+            displayName: 'Gate 2: Health Check'
+          
+          - script: |
+              echo "Monitoring metrics for 5 minutes..."
+              # In real scenario, query monitoring system
+              sleep 10
+              echo "✓ Metrics within acceptable range"
+            displayName: 'Gate 3: Monitor Metrics'
+          
+          - script: |
+              echo "✓ All post-deployment gates passed"
+              echo "Deployment completed successfully"
+            displayName: 'Post-Deployment Gates Summary'
+```
+
+---
+
+### Lab 7.3: Query Work Items Gate
+
+Prevent deployment if there are blocking bugs.
+
+#### 1. Create Work Item Query
+
+```bash
+# In Azure DevOps UI:
+# 1. Go to Boards → Queries
+# 2. Create new query: "Blocking Bugs"
+
+# Query configuration:
+Field: Work Item Type
+Operator: =
+Value: Bug
+
+AND
+
+Field: State
+Operator: =
+Value: Active
+
+AND
+
+Field: Severity
+Operator: =
+Value: 1 - Critical
+
+AND
+
+Field: Tags
+Operator: Contains
+Value: blocking
+```
+
+#### 2. Add Work Item Gate to Pipeline
+
+```yaml
+# Add to pipeline
+
+- stage: DeployProduction
+  jobs:
+  - deployment: DeployProdJob
+    environment: 'Production'
+    strategy:
+      runOnce:
+        preDeploy:
+          steps:
+          - task: QueryWorkItems@0
+            displayName: 'Gate: Check for Blocking Bugs'
+            inputs:
+              queryId: '<your-query-id>'  # Get from query URL
+              maxThreshold: '0'  # Fail if any bugs found
+            continueOnError: false
+          
+          - script: |
+              echo "✓ No blocking bugs found"
+            displayName: 'Blocking Bugs Check Passed'
+```
+
+---
+
+### Lab 7.4: Advanced Gate Scenarios
+
+#### 1. Time-Based Deployment Window
+
+```yaml
+- task: PowerShell@2
+  displayName: 'Gate: Deployment Window Check'
+  inputs:
+    targetType: 'inline'
+    script: |
+      $now = Get-Date
+      $dayOfWeek = $now.DayOfWeek
+      $hour = $now.Hour
+      
+      Write-Host "Current time: $now"
+      Write-Host "Day: $dayOfWeek, Hour: $hour"
+      
+      # No deployments on weekends
+      if ($dayOfWeek -eq 'Saturday' -or $dayOfWeek -eq 'Sunday') {
+          Write-Host "✗ Weekend deployment not allowed"
+          exit 1
+      }
+      
+      # No deployments during peak hours (12 PM - 2 PM)
+      if ($hour -ge 12 -and $hour -lt 14) {
+          Write-Host "✗ Peak hours deployment not allowed"
+          exit 1
+      }
+      
+      # No deployments after 6 PM
+      if ($hour -ge 18) {
+          Write-Host "✗ After-hours deployment not allowed"
+          exit 1
+      }
+      
+      Write-Host "✓ Within deployment window"
+```
+
+#### 2. Dependency Check Gate
+
+```yaml
+- task: PowerShell@2
+  displayName: 'Gate: Check Service Dependencies'
+  inputs:
+    targetType: 'inline'
+    script: |
+      $services = @(
+          @{Name="Database"; Url="http://db.example.com/health"},
+          @{Name="Cache"; Url="http://cache.example.com/health"},
+          @{Name="API"; Url="http://api.example.com/health"}
+      )
+      
+      $allHealthy = $true
+      
+      foreach ($service in $services) {
+          try {
+              $response = Invoke-WebRequest -Uri $service.Url -TimeoutSec 5
+              if ($response.StatusCode -eq 200) {
+                  Write-Host "✓ $($service.Name) is healthy"
+              } else {
+                  Write-Host "✗ $($service.Name) returned status $($response.StatusCode)"
+                  $allHealthy = $false
+              }
+          } catch {
+              Write-Host "✗ $($service.Name) is unreachable"
+              $allHealthy = $false
+          }
+      }
+      
+      if (-not $allHealthy) {
+          Write-Host "✗ Some dependencies are unhealthy"
+          exit 1
+      }
+      
+      Write-Host "✓ All dependencies are healthy"
+```
+
+#### 3. Performance Baseline Gate
+
+```yaml
+- task: PowerShell@2
+  displayName: 'Gate: Performance Baseline Check'
+  inputs:
+    targetType: 'inline'
+    script: |
+      # Simulate performance check
+      $currentResponseTime = 150  # ms
+      $baselineResponseTime = 200  # ms
+      $threshold = 1.5  # 150% of baseline
+      
+      $maxAllowed = $baselineResponseTime * $threshold
+      
+      Write-Host "Current response time: $currentResponseTime ms"
+      Write-Host "Baseline: $baselineResponseTime ms"
+      Write-Host "Max allowed: $maxAllowed ms"
+      
+      if ($currentResponseTime -gt $maxAllowed) {
+          Write-Host "✗ Performance degradation detected"
+          exit 1
+      }
+      
+      Write-Host "✓ Performance within acceptable range"
+```
+
+#### 4. Security Scan Gate
+
+```yaml
+- task: PowerShell@2
+  displayName: 'Gate: Security Vulnerability Check'
+  inputs:
+    targetType: 'inline'
+    script: |
+      # Run security scan
+      npm audit --audit-level=high --json > audit-results.json
+      
+      $results = Get-Content audit-results.json | ConvertFrom-Json
+      $highVulns = $results.metadata.vulnerabilities.high
+      $criticalVulns = $results.metadata.vulnerabilities.critical
+      
+      Write-Host "High vulnerabilities: $highVulns"
+      Write-Host "Critical vulnerabilities: $criticalVulns"
+      
+      if ($criticalVulns -gt 0) {
+          Write-Host "✗ Critical vulnerabilities found"
+          exit 1
+      }
+      
+      if ($highVulns -gt 5) {
+          Write-Host "✗ Too many high vulnerabilities"
+          exit 1
+      }
+      
+      Write-Host "✓ Security scan passed"
+```
+
+---
+
+### Lab 7.5: Gate Monitoring and Reporting
+
+#### 1. Create Gate Status Dashboard Script
+
+```bash
+# Create file: scripts/gate-status.sh
+
+#!/bin/bash
+
+echo "========================================="
+echo "Release Gate Status Dashboard"
+echo "========================================="
+echo ""
+
+# Function to check gate status
+check_gate() {
+    local gate_name=$1
+    local gate_url=$2
+    
+    response=$(curl -s -w "\n%{http_code}" "$gate_url")
+    status_code=$(echo "$response" | tail -n1)
+    body=$(echo "$response" | sed '$d')
+    
+    if [ "$status_code" -eq 200 ]; then
+        echo "✓ $gate_name: PASSED"
+        return 0
+    else
+        echo "✗ $gate_name: FAILED"
+        echo "  Response: $body"
+        return 1
+    fi
+}
+
+# Check all gates
+echo "Pre-Deployment Gates:"
+check_gate "Active Incidents" "http://localhost:5000/api/gates/pre-deployment"
+check_gate "System Health" "http://localhost:5000/api/gates/pre-deployment"
+check_gate "Change Approval" "http://localhost:5000/api/gates/change-approval?changeId=12345"
+
+echo ""
+echo "Post-Deployment Gates:"
+check_gate "Smoke Tests" "http://localhost:5000/api/gates/post-deployment"
+check_gate "Performance" "http://localhost:5000/api/gates/post-deployment"
+
+echo ""
+echo "========================================="
+```
+
+#### 2. Create Gate Failure Notification
+
+```yaml
+- task: PowerShell@2
+  displayName: 'Notify on Gate Failure'
+  condition: failed()
+  inputs:
+    targetType: 'inline'
+    script: |
+      $webhookUrl = "$(SlackWebhookUrl)"
+      
+      $message = @{
+          text = "🚨 Release Gate Failed"
+          attachments = @(
+              @{
+                  color = "danger"
+                  fields = @(
+                      @{
+                          title = "Pipeline"
+                          value = "$(Build.DefinitionName)"
+                          short = $true
+                      },
+                      @{
+                          title = "Build"
+                          value = "$(Build.BuildNumber)"
+                          short = $true
+                      },
+                      @{
+                          title = "Stage"
+                          value = "$(System.StageName)"
+                          short = $true
+                      },
+                      @{
+                          title = "Requested By"
+                          value = "$(Build.RequestedFor)"
+                          short = $true
+                      }
+                  )
+              }
+          )
+      } | ConvertTo-Json -Depth 10
+      
+      Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $message -ContentType 'application/json'
+```
+
+---
+
+### Gate Configuration Best Practices
+
+#### 1. Gate Timeout Settings
+
+```yaml
+# In Environment settings:
+Timeout: 
+  - Pre-deployment gates: 15 minutes
+  - Post-deployment gates: 30 minutes
+  - Approval: 7 days
+
+Sampling interval:
+  - Check every 5 minutes
+  - Minimum success duration: 5 minutes
+```
+
+#### 2. Gate Retry Logic
+
+```yaml
+- task: PowerShell@2
+  displayName: 'Gate with Retry Logic'
+  inputs:
+    targetType: 'inline'
+    script: |
+      $maxRetries = 3
+      $retryCount = 0
+      $success = $false
+      
+      while ($retryCount -lt $maxRetries -and -not $success) {
+          try {
+              # Perform gate check
+              $response = Invoke-WebRequest -Uri "http://api/health"
+              if ($response.StatusCode -eq 200) {
+                  $success = $true
+                  Write-Host "✓ Gate passed"
+              }
+          } catch {
+              $retryCount++
+              Write-Host "Attempt $retryCount failed, retrying..."
+              Start-Sleep -Seconds 10
+          }
+      }
+      
+      if (-not $success) {
+          Write-Host "✗ Gate failed after $maxRetries attempts"
+          exit 1
+      }
+```
+
+---
+
+### Verification Checklist
+
+- [ ] Pre-deployment gates configured
+- [ ] Post-deployment gates configured
+- [ ] Approval gates set up
+- [ ] Work item query gates added
+- [ ] Time-based gates implemented
+- [ ] Dependency checks working
+- [ ] Performance gates configured
+- [ ] Security scan gates added
+- [ ] Gate monitoring dashboard created
+- [ ] Failure notifications configured
+
+## Key Concepts - Release Gates
+
+### Gate Types
+- **Pre-Deployment**: Verify readiness before deployment
+- **Post-Deployment**: Validate after deployment
+- **Approval**: Human decision point
+
+### Gate Evaluation
+- **Sampling Interval**: How often to check (e.g., every 5 minutes)
+- **Timeout**: Maximum wait time (e.g., 15 minutes)
+- **Success Duration**: How long gate must pass (e.g., 5 minutes)
+
+### Gate Strategies
+- **Fail Fast**: Stop immediately on failure
+- **Retry**: Attempt multiple times before failing
+- **Notify**: Alert team on gate status
+
+## Release Gates Summary
+
+Release gates provide:
+- ✅ Automated quality checks
+- ✅ Risk mitigation
+- ✅ Compliance enforcement
+- ✅ Deployment control
+- ✅ Audit trail
+
+You now have enterprise-grade release gates! 🎯

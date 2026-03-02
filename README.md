@@ -71,12 +71,20 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
 
 ### Week 3: Enterprise Deployment
 
-- **[Day 11: Orchestration & Release Strategies](day-11-orchestration-release-strategies.md)** ⭐ NEW
+- **[Day 11: Orchestration & Release Strategies](day-11-orchestration-release-strategies.md)** ⭐
   - Blue-Green deployment
   - Canary releases
   - VM deployment with full code
   - Automated rollback
   - Production-ready orchestration
+
+- **[Day 12: Branching Strategies](day-12-branching-strategies.md)** ⭐ NEW
+  - Git Flow (feature, develop, release, hotfix)
+  - GitHub Flow (simple, continuous)
+  - Trunk-Based Development (high frequency)
+  - GitLab Flow (environment branches)
+  - Release Flow (enterprise support)
+  - Complete hands-on labs for each strategy
 
 ## How to Use This Guide
 
