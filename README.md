@@ -78,13 +78,32 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - Automated rollback
   - Production-ready orchestration
 
-- **[Day 12: Branching Strategies](day-12-branching-strategies.md)** ⭐ NEW
+- **[Day 12: Branching Strategies](day-12-branching-strategies.md)** ⭐
   - Git Flow (feature, develop, release, hotfix)
   - GitHub Flow (simple, continuous)
   - Trunk-Based Development (high frequency)
   - GitLab Flow (environment branches)
   - Release Flow (enterprise support)
   - Complete hands-on labs for each strategy
+
+- **[Day 13: AKS Deployment with AGIC - CLI](day-13-aks-deployment-agic.md)** ⭐
+  - Deploy Hello World API to Azure Kubernetes Service
+  - Configure Application Gateway Ingress Controller (Internal)
+  - Expose internal API publicly for mobile apps
+  - Azure Front Door with Private Link
+  - SSL/TLS configuration and DNS setup
+  - API key authentication and rate limiting
+  - Complete security implementation
+  - Mobile developer documentation
+  - **All via Azure CLI commands**
+
+- **[Day 14: AKS Deployment with AGIC - Portal](day-14-aks-deployment-agic-portal.md)** ⭐ NEW
+  - Same as Day 13 but using Azure Portal (GUI)
+  - Step-by-step Portal navigation
+  - Visual configuration walkthrough
+  - Internal AGIC → Front Door → Public access
+  - Perfect for learning and understanding
+  - **All via Azure Portal interface**
 
 ## How to Use This Guide
 
