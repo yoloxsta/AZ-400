@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Azure DevOps Deployment</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            max-width: 600px;
+            width: 100%;
+        }
+        h1 { color: #333; margin-bottom: 20px; }
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .info-card {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #667eea;
+        }
+        .info-card label {
+            display: block;
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+        .info-card .value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .status.healthy { background: #4caf50; color: white; }
+        .status.blue { background: #2196f3; color: white; }
+        .status.green { background: #4caf50; color: white; }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #5568d3; }
+        #metrics { margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Azure DevOps Deployment</h1>
+        <p>Day 11: Orchestration & Release Strategies</p>
+        
+        <div class="info-grid">
+            <div class="info-card">
+                <label>Version</label>
+                <div class="value">{{VERSION}}</div>
+            </div>
+            <div class="info-card">
+                <label>Environment</label>
+                <div class="value">{{ENVIRONMENT}}</div>
+            </div>
+            <div class="info-card">
+                <label>Deployment Slot</label>
+                <div class="value">
+                    <span class="status {{SLOT}}">{{SLOT}}</span>
+                </div>
+            </div>
+            <div class="info-card">
+                <label>Status</label>
+                <div class="value">
+                    <span class="status healthy" id="status">Loading...</span>
+                </div>
+            </div>
+        </div>
+        
+        <div>
+            <button onclick="checkHealth()">Check Health</button>
+            <button onclick="getMetrics()">View Metrics</button>
+        </div>
+        
+        <div id="metrics"></div>
+    </div>
+    
+    <script>
+        async function checkHealth() {
+            try {
+                const response = await fetch('/health');
+                const data = await response.json();
+                document.getElementById('status').textContent = data.status;
+                document.getElementById('status').className = 'status ' + data.status;
+                alert('Health: ' + data.status + '\nUptime: ' + data.uptime + 's');
+            } catch (error) {
+                alert('Health check failed: ' + error.message);
+            }
+        }
+        
+        async function getMetrics() {
+            try {
+                const response = await fetch('/metrics');
+                const data = await response.json();
+                document.getElementById('metrics').innerHTML = `
+                    <h3>Metrics</h3>
+                    <p>Requests: ${data.requests}</p>
+                    <p>Errors: ${data.errors}</p>
+                    <p>Avg Response Time: ${data.avgResponseTime.toFixed(2)}ms</p>
+                `;
+            } catch (error) {
+                alert('Failed to get metrics: ' + error.message);
+            }
+        }
+        
+        // Auto health check on load
+        checkHealth();
+    </script>
+</body>
+</html>

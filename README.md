@@ -69,6 +69,15 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - Infrastructure as Code
   - GitOps patterns
 
+### Week 3: Enterprise Deployment
+
+- **[Day 11: Orchestration & Release Strategies](day-11-orchestration-release-strategies.md)** ⭐ NEW
+  - Blue-Green deployment
+  - Canary releases
+  - VM deployment with full code
+  - Automated rollback
+  - Production-ready orchestration
+
 ## How to Use This Guide
 
 1. **Follow sequentially**: Each day builds on previous knowledge
