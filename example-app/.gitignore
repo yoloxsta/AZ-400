@@ -1,0 +1,23 @@
+# Example App Specific .gitignore
+
+# Dependencies
+node_modules/
+
+# Environment variables
+.env
+.env.local
+
+# Logs
+logs/
+*.log
+
+# Build output
+dist/
+build/
+
+# Test coverage
+coverage/
+
+# Temporary files
+tmp/
+*.tmp

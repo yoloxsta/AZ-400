@@ -1,0 +1,257 @@
+# Azure DevOps Learning Project - .gitignore
+
+# ============================================
+# Node.js
+# ============================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Dependency directories
+jspm_packages/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# ============================================
+# Environment Variables & Secrets
+# ============================================
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env.*.local
+
+# Secret files
+secrets/
+*.key
+*.pem
+*.pfx
+*.p12
+*.cer
+*.crt
+config/local.json
+config/secrets.json
+
+# ============================================
+# Azure DevOps
+# ============================================
+# Pipeline artifacts (if running locally)
+artifacts/
+drop/
+_work/
+
+# Test results
+TestResults/
+test-results/
+coverage/
+*.trx
+*.coverage
+*.coveragexml
+
+# Build outputs
+bin/
+obj/
+out/
+dist/
+build/
+
+# ============================================
+# IDE & Editors
+# ============================================
+# Visual Studio Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+
+# JetBrains IDEs (IntelliJ, WebStorm, etc.)
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# ============================================
+# Operating System
+# ============================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# ============================================
+# Logs
+# ============================================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# ============================================
+# Testing
+# ============================================
+coverage/
+.nyc_output/
+*.lcov
+.grunt
+lib-cov
+junit.xml
+test-report.xml
+
+# ============================================
+# Temporary Files
+# ============================================
+tmp/
+temp/
+*.tmp
+*.bak
+*.swp
+*.cache
+
+# ============================================
+# Deployment
+# ============================================
+# Deployment packages
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# Backup files
+backups/
+*.backup
+
+# ============================================
+# Database
+# ============================================
+*.sqlite
+*.sqlite3
+*.db
+
+# ============================================
+# Package Managers
+# ============================================
+# npm
+package-lock.json  # Uncomment if you want to ignore it
+# yarn.lock        # Uncomment if you want to ignore it
+# pnpm-lock.yaml   # Uncomment if you want to ignore it
+
+# ============================================
+# Documentation (Optional)
+# ============================================
+# Uncomment if you don't want to track generated docs
+# docs/_build/
+# site/
+
+# ============================================
+# Azure Specific
+# ============================================
+# Local Azure Functions
+local.settings.json
+__blobstorage__/
+__queuestorage__/
+__azurite_db*__.json
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# ARM Templates (if generated)
+# *.parameters.json  # Uncomment if parameters contain secrets
+
+# ============================================
+# CI/CD Specific
+# ============================================
+# Pipeline cache
+.pipeline-cache/
+
+# Deployment scripts output
+deployment-output/
+deployment-logs/
+
+# ============================================
+# Project Specific
+# ============================================
+# Example app artifacts (if you want to ignore them)
+# example-app/node_modules/
+# example-app/dist/
+
+# VM deployment artifacts
+/tmp/deployment/
+
+# Monitoring data
+monitoring-data/
+metrics/
+
+# ============================================
+# Keep These Files
+# ============================================
+# Force include important files even if ignored by patterns above
+!.gitkeep
+!.gitignore
+!.editorconfig
+!.nvmrc
