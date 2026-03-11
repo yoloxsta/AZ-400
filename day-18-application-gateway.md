@@ -1535,10 +1535,17 @@ This is the key part - creating URL rewrite rules!
 
 Now we need to route `/nginx` to our new backend pool.
 
+**Important Note:** If you're creating a NEW routing rule, you won't see path-based options immediately. You must create a basic rule first, then edit it to add path-based routing.
+
+#### Option A: Edit Existing Rule (If you have rule-default)
+
 1. Go to **"Rules"**
 2. Click on **"rule-default"**
 3. Click **"Backend targets"** tab
-4. In the path-based routing section, click **"Add new path"**
+4. **Check the box**: ☑️ **"Add multiple targets to create a path-based rule"**
+   - This checkbox only appears when editing an existing rule
+   - It won't appear when creating a new rule
+5. After checking the box, click **"Add new path"**
 
 **New Path:**
 - **Path**: `/nginx`
@@ -1547,11 +1554,69 @@ Now we need to route `/nginx` to our new backend pool.
 - **Backend settings**: `http-settings`
 - **Rewrite set**: Select `rewrite-nginx`
 
-5. Click **"Update"**
+6. Click **"Update"**
+
+#### Option B: Create New Rule (If you don't have existing rule)
+
+**Step 5a: Create Basic Rule First**
+
+1. Go to **"Rules"**
+2. Click **"+ Add routing rule"**
+
+**Basic Rule:**
+- **Rule name**: `rule-nginx-demo`
+- **Priority**: `150`
+
+**Listener Tab:**
+- **Listener**: Select existing listener or create new one
+- Click **"Backend targets"** tab
+
+**Backend targets Tab:**
+- **Target type**: `Backend pool`
+- **Backend target**: `pool-nginx-demo`
+- **Backend settings**: `http-settings`
+- Click **"Add"**
+
+**⏱️ Wait**: 2-3 minutes for rule to be created
+
+**Step 5b: Edit Rule to Add Path-Based Routing**
+
+1. Go to **"Rules"**
+2. Click on **"rule-nginx-demo"** (the rule you just created)
+3. Click **"Backend targets"** tab
+4. **NOW you'll see the checkbox!** ☑️ **"Add multiple targets to create a path-based rule"**
+5. Check the box
+6. Configure path:
+   - **Path**: `/nginx`
+   - **Target name**: `target-nginx-demo`
+   - **Backend target**: `pool-nginx-demo`
+   - **Backend settings**: `http-settings`
+   - **Rewrite set**: Select `rewrite-nginx`
+7. Click **"Update"**
 
 **⏱️ Wait**: 2-3 minutes
 
 **✅ Result**: Routing rule configured with URL rewrite
+
+---
+
+### Common Issue: "I don't see the path-based checkbox!"
+
+**Problem:**
+You're trying to create a new routing rule and don't see the option to add multiple paths.
+
+**Why:**
+Azure Portal's "Add routing rule" wizard only allows basic routing. Path-based routing can only be configured when **editing an existing rule**.
+
+**Solution:**
+1. Create a basic rule first (1 listener → 1 backend)
+2. Save it
+3. Wait 2-3 minutes
+4. Edit the rule
+5. Then you'll see: ☑️ "Add multiple targets to create a path-based rule"
+6. Check it and add your paths
+
+**This is a Portal UI limitation, not a feature limitation!**
 
 ---
 
