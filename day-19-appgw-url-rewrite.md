@@ -864,3 +864,37 @@ VM with nginx (shows same page for all)
 - ✅ Backend sees rewritten URL, not original
 - ✅ Same backend can serve multiple friendly URLs
 
+
+**Testing results:**
+- ✅ `http://appgw-ip/nginx` → Shows nginx page
+- ✅ `http://appgw-ip/yolox` → Shows nginx page (same!)
+- ✅ `http://appgw-ip/` → Shows nginx page
+- ✅ Backend logs show `GET /` for all requests
+- ✅ URL rewrite working correctly
+
+**Configuration summary:**
+- 1 Application Gateway
+- 1 Backend pool (pool-nginx)
+- 1 Routing rule (rule-basic) with path-based routing
+- 1 Rewrite set (rewrite-to-root) with 2 rules
+- 2 URL rewrites (/nginx → /, /yolox → /)
+
+**Cost: ~$254/month** (Application Gateway only, VM already running)
+
+**Real-world applications:**
+- ✅ Friendly URLs for marketing campaigns
+- ✅ Multiple entry points to same application
+- ✅ A/B testing with different URLs
+- ✅ Regional URLs (e.g., /us, /eu → same backend)
+- ✅ Product-specific URLs (e.g., /product1, /product2 → same app)
+
+**Next steps:**
+- Add more rewrite rules for additional paths
+- Configure SSL/TLS certificates
+- Enable WAF for security
+- Set up custom health probes
+- Configure autoscaling
+- Add monitoring and alerts
+
+Great job! You now understand how to create Application Gateway with multiple URL rewrites to the same backend! 🚀
+
