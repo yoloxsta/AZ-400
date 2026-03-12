@@ -1143,9 +1143,53 @@ We need separate backend pools for each domain.
 
 ---
 
-### Step 2: Create Multi-Site Listener for app1.example.com
+### Step 2: Important - Understanding Port 80 Listener Limitation
 
-Now we'll create a listener that listens for specific hostname on port 80.
+**You already have a listener on port 80!**
+
+Your existing configuration:
+- **Listener name**: `test-linsten`
+- **Port**: `80`
+- **Listener type**: `Basic`
+- **Associated rule**: `test-rule` (path-based routing)
+
+**Problem:**
+- Azure Application Gateway allows only ONE listener per port
+- You cannot create additional listeners on port 80
+- Your existing `test-linsten` is already using port 80
+
+**Solution Options:**
+
+**Option A: Use Different Ports for Host-Based Routing** (Recommended for learning)
+- Keep port 80 for path-based routing (`/nginx`, `/yolox`)
+- Use port 81 for `app1.example.com`
+- Use port 82 for `app2.example.com`
+- URLs: `http://app1.example.com:81`, `http://app2.example.com:82`
+
+**Option B: Convert Existing Listener to Multi-Site** (Advanced)
+- Change `test-linsten` from Basic to Multi-site
+- Add multiple hostnames to same listener
+- More complex configuration
+- Risk of breaking existing path-based routing
+
+**Option C: Use Multiple Frontend IPs** (Production approach)
+- Add a second public IP to Application Gateway
+- Create new listener on port 80 with different frontend IP
+- More expensive but cleanly separates traffic
+
+**For this guide, we'll use Option A (different ports) because:**
+- ✅ Keeps your existing path-based routing working
+- ✅ Easy to understand and test
+- ✅ No risk of breaking current configuration
+- ✅ Can test host-based routing independently
+
+**If you want production-style port 80 for everything, see "Option B Alternative" at the end of this part.**
+
+---
+
+### Step 3: Create Multi-Site Listener for app1.example.com (Port 81)
+
+Since port 80 is taken, we'll use port 81 for the first domain.
 
 1. Go to **"Listeners"**
 2. Click **"+ Add listener"**
@@ -1154,7 +1198,7 @@ Now we'll create a listener that listens for specific hostname on port 80.
 - **Listener name**: `listener-app1`
 - **Frontend IP**: `Public`
 - **Protocol**: `HTTP`
-- **Port**: `80`
+- **Port**: `81` ⚠️ (Not 80!)
 - **Listener type**: `Multi site` ⚠️ (Important!)
 - **Host type**: `Single`
 - **Host name**: `app1.example.com`
@@ -1163,11 +1207,11 @@ Now we'll create a listener that listens for specific hostname on port 80.
 
 **⏱️ Wait**: 1-2 minutes
 
-**✅ Result**: Multi-site listener created for app1.example.com
+**✅ Result**: Multi-site listener created for app1.example.com on port 81
 
 ---
 
-### Step 3: Create Multi-Site Listener for app2.example.com
+### Step 4: Create Multi-Site Listener for app2.example.com (Port 82)
 
 1. Click **"+ Add listener"** again
 
@@ -1175,7 +1219,7 @@ Now we'll create a listener that listens for specific hostname on port 80.
 - **Listener name**: `listener-app2`
 - **Frontend IP**: `Public`
 - **Protocol**: `HTTP`
-- **Port**: `80`
+- **Port**: `82` ⚠️ (Not 80!)
 - **Listener type**: `Multi site` ⚠️ (Important!)
 - **Host type**: `Single`
 - **Host name**: `app2.example.com`
@@ -1184,20 +1228,61 @@ Now we'll create a listener that listens for specific hostname on port 80.
 
 **⏱️ Wait**: 1-2 minutes
 
-**✅ Result**: Multi-site listener created for app2.example.com
+**✅ Result**: Multi-site listener created for app2.example.com on port 82
 
 ---
 
-### Step 4: Create Routing Rule for app1.example.com
+### Step 5: Open Ports 81 and 82 in NSG (If Needed)
 
-Now we'll create a routing rule with higher priority than the path-based rule.
+If your Application Gateway subnet has a Network Security Group (NSG), you need to allow ports 81 and 82.
+
+1. Go to **"Network security groups"**
+2. Find the NSG associated with your Application Gateway subnet
+3. Click **"Inbound security rules"**
+4. Click **"+ Add"**
+
+**Rule for Port 81:**
+- **Source**: `Any`
+- **Source port ranges**: `*`
+- **Destination**: `Any`
+- **Service**: `Custom`
+- **Destination port ranges**: `81`
+- **Protocol**: `TCP`
+- **Action**: `Allow`
+- **Priority**: `310`
+- **Name**: `Allow-HTTP-81`
+- Click **"Add"**
+
+5. Click **"+ Add"** again
+
+**Rule for Port 82:**
+- **Source**: `Any`
+- **Source port ranges**: `*`
+- **Destination**: `Any`
+- **Service**: `Custom`
+- **Destination port ranges**: `82`
+- **Protocol**: `TCP`
+- **Action**: `Allow`
+- **Priority**: `320`
+- **Name**: `Allow-HTTP-82`
+- Click **"Add"**
+
+**Note:** If you don't have an NSG, skip this step. Application Gateway allows all ports by default.
+
+**✅ Result**: Ports 81 and 82 are open
+
+---
+
+### Step 6: Create Routing Rule for app1.example.com
+
+Now we'll create a routing rule. Priority doesn't matter as much here since different ports don't conflict.
 
 1. Go to **"Rules"**
 2. Click **"+ Add routing rule"**
 
 **Routing Rule:**
 - **Rule name**: `rule-app1`
-- **Priority**: `50` ⚠️ (Lower than path-based rule's 100)
+- **Priority**: `50` (or any available number)
 
 **Listener Tab:**
 - **Listener**: Select `listener-app1`
@@ -1211,17 +1296,17 @@ Now we'll create a routing rule with higher priority than the path-based rule.
 
 **⏱️ Wait**: 2-3 minutes
 
-**✅ Result**: Routing rule created for app1.example.com
+**✅ Result**: Routing rule created for app1.example.com on port 81
 
 ---
 
-### Step 5: Create Routing Rule for app2.example.com
+### Step 7: Create Routing Rule for app2.example.com
 
 1. Click **"+ Add routing rule"** again
 
 **Routing Rule:**
 - **Rule name**: `rule-app2`
-- **Priority**: `60` ⚠️ (Lower than path-based rule's 100)
+- **Priority**: `60` (or any available number)
 
 **Listener Tab:**
 - **Listener**: Select `listener-app2`
@@ -1235,33 +1320,33 @@ Now we'll create a routing rule with higher priority than the path-based rule.
 
 **⏱️ Wait**: 2-3 minutes
 
-**✅ Result**: Routing rule created for app2.example.com
+**✅ Result**: Routing rule created for app2.example.com on port 82
 
 ---
 
-### Step 6: Verify Configuration
+### Step 8: Verify Configuration
 
 Let's check that all rules are configured correctly.
 
 1. Go to **"Rules"**
 2. You should see 3 rules:
 
-| Rule Name | Type | Listener | Priority |
-|-----------|------|----------|----------|
-| rule-app1 | Basic | listener-app1 | 50 |
-| rule-app2 | Basic | listener-app2 | 60 |
-| test-rule | Path-based | test-linsten | 100 |
+| Rule Name | Type | Listener | Port | Priority |
+|-----------|------|----------|------|----------|
+| rule-app1 | Basic | listener-app1 | 81 | 50 |
+| rule-app2 | Basic | listener-app2 | 82 | 60 |
+| test-rule | Path-based | test-linsten | 80 | 100 |
 
-**Priority order:**
-1. `rule-app1` (50) - Checks for `app1.example.com` first
-2. `rule-app2` (60) - Checks for `app2.example.com` second
-3. `test-rule` (100) - Falls back to path-based routing
+**Port separation:**
+- Port 80: Path-based routing (`/nginx`, `/yolox`)
+- Port 81: Host-based routing for `app1.example.com`
+- Port 82: Host-based routing for `app2.example.com`
 
-**✅ Result**: All rules configured with correct priorities
+**✅ Result**: All rules configured on separate ports
 
 ---
 
-### Step 7: Configure DNS or Hosts File
+### Step 9: Configure DNS or Hosts File
 
 Since we're using custom domains, we need to point them to the Application Gateway IP.
 
@@ -1300,39 +1385,39 @@ If you own a domain:
 
 ---
 
-### Step 8: Test Host-Based Routing
+### Step 10: Test Host-Based Routing
 
-Now let's test that host-based routing works on port 80.
+Now let's test that host-based routing works on ports 81 and 82.
 
-**Test 1: Access app1.example.com**
+**Test 1: Access app1.example.com on Port 81**
 
 ```bash
 # Using curl with Host header
-curl -H "Host: app1.example.com" http://<appgw-public-ip>
+curl -H "Host: app1.example.com" http://<appgw-public-ip>:81
 
 # Or if hosts file is configured:
-curl http://app1.example.com
+curl http://app1.example.com:81
 ```
 
 **Expected:**
 - nginx page from VM 1
-- No port number needed!
+- Port 81 required in URL
 
-**Test 2: Access app2.example.com**
+**Test 2: Access app2.example.com on Port 82**
 
 ```bash
 # Using curl with Host header
-curl -H "Host: app2.example.com" http://<appgw-public-ip>
+curl -H "Host: app2.example.com" http://<appgw-public-ip>:82
 
 # Or if hosts file is configured:
-curl http://app2.example.com
+curl http://app2.example.com:82
 ```
 
 **Expected:**
 - nginx page from VM 2
-- No port number needed!
+- Port 82 required in URL
 
-**Test 3: Verify Path-Based Routing Still Works**
+**Test 3: Verify Path-Based Routing Still Works on Port 80**
 
 ```bash
 # Test /nginx path
@@ -1343,122 +1428,102 @@ curl http://<appgw-public-ip>/yolox
 ```
 
 **Expected:**
-- Both paths still work
+- Both paths still work on port 80
 - URL rewrite still applies
+- No port number needed for path-based routing
 
-**✅ Result**: All routing types work on port 80!
+**✅ Result**: All routing types work on their respective ports!
 
 ---
 
-### Step 9: Test from Browser
+### Step 11: Test from Browser
 
 **Test 1: Open Browser**
 
 1. Open browser
-2. Go to: `http://app1.example.com`
+2. Go to: `http://app1.example.com:81`
 3. **Expected**: nginx page from VM 1
 
 **Test 2: Test Second Domain**
 
-1. Go to: `http://app2.example.com`
+1. Go to: `http://app2.example.com:82`
 2. **Expected**: nginx page from VM 2
 
 **Test 3: Test Path-Based Routing**
 
 1. Go to: `http://<appgw-public-ip>/nginx`
-2. **Expected**: nginx page with URL rewrite
+2. **Expected**: nginx page with URL rewrite (no port needed)
 
 **Notice:**
-- No port numbers needed! ✅
-- Clean, production-style URLs ✅
-- Both host-based and path-based routing work together ✅
+- Host-based routing requires port numbers (81, 82)
+- Path-based routing uses default port 80 (no port needed)
+- Both routing types work independently
 
 ---
 
-### Step 10: Understanding Priority and Routing Logic
+### Step 12: Understanding Port-Based Separation
 
 **How Application Gateway Processes Requests:**
 
 ```
-Request arrives on port 80
+Request arrives
     ↓
-Check rules by priority (lowest number first)
+Check which port?
     ↓
-Priority 50: rule-app1
-    ├─ Check: Host header = "app1.example.com"?
-    ├─ YES → Route to pool-app1 ✅
-    └─ NO → Continue to next rule
+Port 80 → test-linsten (Basic listener)
+    ├─ Path: /nginx → Rewrite to / → pool-nginx
+    ├─ Path: /yolox → Rewrite to / → pool-nginx
+    └─ Default: / → pool-nginx
     ↓
-Priority 60: rule-app2
-    ├─ Check: Host header = "app2.example.com"?
-    ├─ YES → Route to pool-app2 ✅
-    └─ NO → Continue to next rule
+Port 81 → listener-app1 (Multi-site listener)
+    └─ Host: app1.example.com → pool-app1
     ↓
-Priority 100: test-rule (path-based)
-    ├─ Check: Path = "/nginx"?
-    ├─ YES → Rewrite to "/" → Route to pool-nginx ✅
-    ├─ Check: Path = "/yolox"?
-    ├─ YES → Rewrite to "/" → Route to pool-nginx ✅
-    └─ Default → Route to pool-nginx
+Port 82 → listener-app2 (Multi-site listener)
+    └─ Host: app2.example.com → pool-app2
 ```
 
 **Example Requests:**
 
-**Request 1:** `http://app1.example.com/`
+**Request 1:** `http://app1.example.com:81`
 ```
+Port: 81
 Host: app1.example.com
-Path: /
     ↓
-Priority 50: rule-app1
+listener-app1 (Port 81)
     Host matches "app1.example.com" ✅
     → Route to pool-app1
-    → STOP (don't check other rules)
 ```
 
-**Request 2:** `http://app2.example.com/`
+**Request 2:** `http://app2.example.com:82`
 ```
+Port: 82
 Host: app2.example.com
-Path: /
     ↓
-Priority 50: rule-app1
-    Host matches "app1.example.com" ❌
-    → Continue
-    ↓
-Priority 60: rule-app2
+listener-app2 (Port 82)
     Host matches "app2.example.com" ✅
     → Route to pool-app2
-    → STOP
 ```
 
 **Request 3:** `http://<appgw-ip>/nginx`
 ```
-Host: <appgw-ip> (or no Host header)
+Port: 80 (default)
 Path: /nginx
     ↓
-Priority 50: rule-app1
-    Host matches "app1.example.com" ❌
-    → Continue
-    ↓
-Priority 60: rule-app2
-    Host matches "app2.example.com" ❌
-    → Continue
-    ↓
-Priority 100: test-rule
+test-linsten (Port 80)
     Path matches "/nginx" ✅
     → Rewrite to "/"
     → Route to pool-nginx
-    → STOP
 ```
 
 **Key Points:**
-- Lower priority number = checked first
-- First matching rule wins
-- Host-based rules (50, 60) checked before path-based (100)
-- If no host match, falls back to path-based routing
+- Different ports = different listeners = no conflicts
+- Port 80 handles path-based routing
+- Ports 81, 82 handle host-based routing
+- Each listener operates independently
 
 ---
 
-### Step 11: Configure nginx for Virtual Hosts (Optional)
+### Step 13: Configure nginx for Virtual Hosts (Optional)
 
 If you want different content for each domain on the same VM, configure nginx virtual hosts.
 
@@ -1559,32 +1624,32 @@ curl http://app2.example.com
 
 ---
 
-### Step 12: Complete Architecture
+### Step 14: Complete Architecture
 
 **Final Configuration:**
 
 ```
-Internet (Port 80)
+Internet
     ↓
 Application Gateway (Public IP)
     ↓
 ┌─────────────────────────────────────────────────────┐
-│ Port 80 Listeners:                                  │
-│   ├─ listener-app1 (Multi-site: app1.example.com)  │
-│   ├─ listener-app2 (Multi-site: app2.example.com)  │
-│   └─ test-linsten (Basic: all traffic)             │
+│ Listeners:                                          │
+│   ├─ test-linsten (Port 80, Basic)                 │
+│   ├─ listener-app1 (Port 81, Multi-site)           │
+│   └─ listener-app2 (Port 82, Multi-site)           │
 └─────────────────────────────────────────────────────┘
     ↓
 ┌─────────────────────────────────────────────────────┐
-│ Routing Rules (by priority):                        │
-│   ├─ rule-app1 (Priority 50)                        │
+│ Routing Rules:                                      │
+│   ├─ test-rule (Port 80, Path-based)                │
+│   │   ├─ Path: /nginx → Rewrite to / → pool-nginx  │
+│   │   ├─ Path: /yolox → Rewrite to / → pool-nginx  │
+│   │   └─ Default: / → pool-nginx                    │
+│   ├─ rule-app1 (Port 81)                            │
 │   │   └─ Host: app1.example.com → pool-app1        │
-│   ├─ rule-app2 (Priority 60)                        │
-│   │   └─ Host: app2.example.com → pool-app2        │
-│   └─ test-rule (Priority 100, Path-based)           │
-│       ├─ Path: /nginx → Rewrite to / → pool-nginx  │
-│       ├─ Path: /yolox → Rewrite to / → pool-nginx  │
-│       └─ Default: / → pool-nginx                    │
+│   └─ rule-app2 (Port 82)                            │
+│       └─ Host: app2.example.com → pool-app2        │
 └─────────────────────────────────────────────────────┘
     ↓
 ┌─────────────────────────────────────────────────────┐
@@ -1597,19 +1662,19 @@ Application Gateway (Public IP)
 
 **Routing Summary:**
 
-| Request | Matches Rule | Priority | Backend | Result |
-|---------|--------------|----------|---------|--------|
-| `http://app1.example.com` | rule-app1 | 50 | pool-app1 | VM 1 content |
-| `http://app2.example.com` | rule-app2 | 60 | pool-app2 | VM 2 content |
-| `http://appgw-ip/nginx` | test-rule | 100 | pool-nginx | Rewrite to / |
-| `http://appgw-ip/yolox` | test-rule | 100 | pool-nginx | Rewrite to / |
-| `http://appgw-ip/` | test-rule | 100 | pool-nginx | No rewrite |
+| Request | Port | Matches Rule | Backend | Result |
+|---------|------|--------------|---------|--------|
+| `http://app1.example.com:81` | 81 | rule-app1 | pool-app1 | VM 1 content |
+| `http://app2.example.com:82` | 82 | rule-app2 | pool-app2 | VM 2 content |
+| `http://appgw-ip/nginx` | 80 | test-rule | pool-nginx | Rewrite to / |
+| `http://appgw-ip/yolox` | 80 | test-rule | pool-nginx | Rewrite to / |
+| `http://appgw-ip/` | 80 | test-rule | pool-nginx | No rewrite |
 
-**All on port 80 - no port numbers needed!** ✅
+**Port separation keeps everything clean!** ✅
 
 ---
 
-### Step 13: Troubleshooting Host-Based Routing
+### Step 15: Troubleshooting Host-Based Routing
 
 **Issue 1: app1.example.com Returns 502 Bad Gateway**
 
@@ -1638,26 +1703,47 @@ Application Gateway (Public IP)
 **Issue 2: Host-Based Routing Not Working, Falls Back to Path-Based**
 
 **Symptoms:**
-- `http://app1.example.com` shows same content as `http://appgw-ip/`
+- `http://app1.example.com:81` shows same content as `http://appgw-ip/`
 - Host header not being checked
 
 **Solutions:**
 
-1. **Check priority:**
-   - Host-based rules must have lower priority number than path-based
-   - rule-app1: 50 ✅
-   - rule-app2: 60 ✅
-   - test-rule: 100 ✅
-
-2. **Check listener type:**
+1. **Check listener type:**
    - Must be `Multi site`, not `Basic`
    - Basic listeners don't check Host header
+   - Go to Listeners → listener-app1 → Verify type is Multi-site
+
+2. **Check hostname configuration:**
+   - Verify hostname is exactly: `app1.example.com`
+   - Check for typos or extra spaces
 
 3. **Check hosts file or DNS:**
    - Verify domain points to Application Gateway IP
-   - Test with curl: `curl -H "Host: app1.example.com" http://<appgw-ip>`
+   - Test with curl: `curl -H "Host: app1.example.com" http://<appgw-ip>:81`
 
-**Issue 3: Path-Based Routing Stopped Working**
+**Issue 3: Cannot Access on Port 81 or 82**
+
+**Symptoms:**
+- Connection timeout or refused
+- Works on port 80 but not 81/82
+
+**Solutions:**
+
+1. **Check NSG rules:**
+   - Verify ports 81 and 82 are allowed in NSG
+   - Check both inbound and outbound rules
+   - Priority should be lower than any deny rules
+
+2. **Check listener is created:**
+   - Go to Listeners
+   - Verify listener-app1 (port 81) and listener-app2 (port 82) exist
+
+3. **Check Application Gateway status:**
+   - Go to Overview
+   - Verify Operational state: Running
+   - Wait 5 minutes after creating listeners
+
+**Issue 4: Path-Based Routing Stopped Working**
 
 **Symptoms:**
 - `/nginx` and `/yolox` return 404
@@ -1665,68 +1751,248 @@ Application Gateway (Public IP)
 
 **Solutions:**
 
-1. **Check test-rule priority:**
-   - Must be higher number (lower priority) than host-based rules
-   - Should be: 100 or higher
+1. **Check test-rule still exists:**
+   - Go to Rules
+   - Verify test-rule is present
+   - Check it's still associated with test-linsten (port 80)
 
-2. **Check listener still exists:**
-   - Verify `test-linsten` is still configured
-   - Check it's still on port 80
-
-3. **Check path-based routing is enabled:**
+2. **Check path-based routing is enabled:**
    - Go to Rules → test-rule
    - Verify checkbox is checked: "Add multiple targets to create a path-based rule"
 
-**Issue 4: Both Domains Show Same Content**
+3. **Check rewrite set association:**
+   - Verify rewrite set is still associated with path targets
+   - Should have all 3 selected: test-rule, soetintaung, azureuser
 
-**Symptoms:**
-- `app1.example.com` and `app2.example.com` show identical content
-- Both route to same backend
+---
 
-**Solutions:**
+### Step 16: Option B - Convert to Port 80 (Advanced Alternative)
 
-1. **Check backend pools:**
-   - Verify pool-app1 and pool-app2 point to different VMs
-   - Or if same VM, check nginx virtual hosts are configured
+**Warning:** This is an advanced configuration that modifies your existing listener. Only do this if you understand the risks.
 
-2. **Check routing rules:**
-   - rule-app1 should use pool-app1
-   - rule-app2 should use pool-app2
+**Goal:** Get everything working on port 80 without port numbers.
 
-3. **If using same VM, configure nginx virtual hosts:**
-   - See Step 11 for nginx virtual host configuration
-   - Verify nginx is serving different content based on Host header
+**Approach:** Delete existing basic listener and create new multi-site listeners on port 80.
+
+#### Step 16.1: Backup Current Configuration
+
+Before making changes, document your current setup:
+
+1. Go to **"Rules"** → Take screenshot
+2. Go to **"Listeners"** → Take screenshot
+3. Go to **"Backend pools"** → Take screenshot
+
+#### Step 16.2: Delete Existing Routing Rule
+
+1. Go to **"Rules"**
+2. Select **"test-rule"**
+3. Click **"Delete"**
+4. Confirm deletion
+5. **⏱️ Wait**: 2-3 minutes
+
+**Note:** This will temporarily break your path-based routing!
+
+#### Step 16.3: Delete Existing Listener
+
+1. Go to **"Listeners"**
+2. Select **"test-linsten"**
+3. Click **"Delete"**
+4. Confirm deletion
+5. **⏱️ Wait**: 2-3 minutes
+
+**Now port 80 is free!**
+
+#### Step 16.4: Create Multi-Site Listener for app1 on Port 80
+
+1. Click **"+ Add listener"**
+
+**Listener Configuration:**
+- **Listener name**: `listener-app1-80`
+- **Frontend IP**: `Public`
+- **Protocol**: `HTTP`
+- **Port**: `80` ✅
+- **Listener type**: `Multi site`
+- **Host type**: `Single`
+- **Host name**: `app1.example.com`
+- Click **"Add"**
+
+#### Step 16.5: Create Multi-Site Listener for app2 on Port 80
+
+1. Click **"+ Add listener"**
+
+**Listener Configuration:**
+- **Listener name**: `listener-app2-80`
+- **Frontend IP**: `Public`
+- **Protocol**: `HTTP`
+- **Port**: `80` ✅
+- **Listener type**: `Multi site`
+- **Host type**: `Single`
+- **Host name**: `app2.example.com`
+- Click **"Add"**
+
+#### Step 16.6: Create Basic Listener for Default Traffic on Port 80
+
+1. Click **"+ Add listener"**
+
+**Listener Configuration:**
+- **Listener name**: `listener-default-80`
+- **Frontend IP**: `Public`
+- **Protocol**: `HTTP`
+- **Port**: `80` ✅
+- **Listener type**: `Basic`
+- Click **"Add"**
+
+**⏱️ Wait**: 3-5 minutes for all listeners to be created
+
+#### Step 16.7: Create Routing Rules
+
+Now create 3 routing rules with proper priorities:
+
+**Rule 1: app1 (Highest Priority)**
+
+1. Go to **"Rules"** → **"+ Add routing rule"**
+- **Rule name**: `rule-app1-80`
+- **Priority**: `10`
+- **Listener**: `listener-app1-80`
+- **Backend target**: `pool-app1`
+- **Backend settings**: `http-settings`
+- Click **"Add"**
+
+**Rule 2: app2**
+
+2. **"+ Add routing rule"**
+- **Rule name**: `rule-app2-80`
+- **Priority**: `20`
+- **Listener**: `listener-app2-80`
+- **Backend target**: `pool-app2`
+- **Backend settings**: `http-settings`
+- Click **"Add"**
+
+**Rule 3: Default with Path-Based Routing (Lowest Priority)**
+
+3. **"+ Add routing rule"**
+- **Rule name**: `rule-default-80`
+- **Priority**: `100`
+- **Listener**: `listener-default-80`
+- **Backend target**: `pool-nginx`
+- **Backend settings**: `http-settings`
+- Click **"Add"**
+
+**⏱️ Wait**: 2-3 minutes
+
+#### Step 16.8: Enable Path-Based Routing on Default Rule
+
+1. Go to **"Rules"** → **"rule-default-80"**
+2. Click **"Backend targets"** tab
+3. Check: ☑️ **"Add multiple targets to create a path-based rule"**
+4. Add paths:
+   - **Path**: `/nginx`
+   - **Target name**: `target-nginx`
+   - **Backend pool**: `pool-nginx`
+   - **Backend settings**: `http-settings`
+   - **Rewrite set**: `rewrite-to-root`
+5. Click **"Add new path"**
+   - **Path**: `/yolox`
+   - **Target name**: `target-yolox`
+   - **Backend pool**: `pool-nginx`
+   - **Backend settings**: `http-settings`
+   - **Rewrite set**: `rewrite-to-root`
+6. Click **"Update"**
+
+**⏱️ Wait**: 3-5 minutes
+
+#### Step 16.9: Update Rewrite Set Associations
+
+1. Go to **"Rewrites"** → **"rewrite-to-root"**
+2. Click **"Edit"**
+3. Select all path targets:
+   - ☑️ rule-default-80
+   - ☑️ target-nginx
+   - ☑️ target-yolox
+4. Click **"Save"**
+
+**⏱️ Wait**: 2-3 minutes
+
+#### Step 16.10: Test Everything on Port 80
+
+**Test host-based routing:**
+```bash
+# Test app1 (no port number!)
+curl http://app1.example.com
+
+# Test app2 (no port number!)
+curl http://app2.example.com
+```
+
+**Test path-based routing:**
+```bash
+# Test /nginx
+curl http://<appgw-ip>/nginx
+
+# Test /yolox
+curl http://<appgw-ip>/yolox
+```
+
+**Expected Results:**
+- ✅ `http://app1.example.com` → VM 1 (no port!)
+- ✅ `http://app2.example.com` → VM 2 (no port!)
+- ✅ `http://appgw-ip/nginx` → Rewrite to /
+- ✅ `http://appgw-ip/yolox` → Rewrite to /
+
+**All on port 80!** 🎉
+
+#### Step 16.11: Final Configuration on Port 80
+
+```
+Port 80 (HTTP)
+    ├─ listener-app1-80 (Multi-site: app1.example.com) → rule-app1-80 (Priority 10)
+    ├─ listener-app2-80 (Multi-site: app2.example.com) → rule-app2-80 (Priority 20)
+    └─ listener-default-80 (Basic: all other traffic) → rule-default-80 (Priority 100)
+        ├─ Path: /nginx → Rewrite to / → pool-nginx
+        ├─ Path: /yolox → Rewrite to / → pool-nginx
+        └─ Default: / → pool-nginx
+```
+
+**Routing Logic:**
+1. Check app1.example.com (Priority 10) → pool-app1
+2. Check app2.example.com (Priority 20) → pool-app2
+3. Fall back to path-based routing (Priority 100) → pool-nginx
+
+**This is production-ready!** ✅
 
 ---
 
 ### Summary of Part 16
 
 **What we added:**
-- ✅ Host-based routing on port 80
+- ✅ Host-based routing on ports 81 and 82
 - ✅ 2 multi-site listeners (app1, app2)
-- ✅ 2 new routing rules with higher priority
-- ✅ Production-style URLs without port numbers
-- ✅ Host-based and path-based routing working together
+- ✅ 2 new routing rules for host-based routing
+- ✅ Path-based routing still works on port 80
+- ✅ All routing types working independently
 
-**Final routing on port 80:**
-- `http://app1.example.com` → VM 1 (Priority 50)
-- `http://app2.example.com` → VM 2 (Priority 60)
-- `http://appgw-ip/nginx` → VM with rewrite (Priority 100)
-- `http://appgw-ip/yolox` → VM with rewrite (Priority 100)
+**Final routing configuration:**
+- Port 80: Path-based routing (`/nginx`, `/yolox`)
+- Port 81: Host-based routing (`app1.example.com`)
+- Port 82: Host-based routing (`app2.example.com`)
+
+**URLs:**
+- `http://app1.example.com:81` → VM 1
+- `http://app2.example.com:82` → VM 2
+- `http://appgw-ip/nginx` → VM with rewrite
+- `http://appgw-ip/yolox` → VM with rewrite
 
 **Key learnings:**
-- ✅ Multiple listener types can share same port
-- ✅ Priority determines which rule is checked first
-- ✅ Host-based rules should have lower priority numbers
-- ✅ Multi-site listeners check Host header
-- ✅ Basic listeners don't check Host header
-- ✅ First matching rule wins, others are skipped
+- ✅ Only one listener allowed per port
+- ✅ Existing Basic listener on port 80 prevents adding Multi-site listeners
+- ✅ Using different ports (81, 82) avoids conflicts
+- ✅ Each port operates independently
+- ✅ Option B shows how to convert everything to port 80 (advanced)
 
-**Production-ready features:**
-- ✅ No port numbers in URLs
-- ✅ Clean domain-based routing
-- ✅ Multiple routing strategies on same port
-- ✅ Scalable architecture for multiple domains
+**For production without port numbers:**
+- Follow Option B (Step 16) to convert to port 80
+- Or use a load balancer in front to handle port mapping
+- Or use multiple frontend IPs (not covered in this guide)
 
-Great job! You now have a production-style Application Gateway with both host-based and path-based routing on port 80! 🚀
+Great job! You now understand both approaches for host-based routing with Application Gateway! 🚀
 
