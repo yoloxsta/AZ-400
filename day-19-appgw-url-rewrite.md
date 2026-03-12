@@ -1996,3 +1996,779 @@ Port 80 (HTTP)
 
 Great job! You now understand both approaches for host-based routing with Application Gateway! 🚀
 
+
+
+---
+
+## Part 17: Wildcard Example Usage in Application Gateway (Multiple/Wildcard Host Type)
+
+This section shows the BEST production approach: using **Multiple/Wildcard** host type to handle multiple domains on port 80 without needing separate listeners.
+
+**Goal:**
+- Use ONE listener on port 80 for multiple domains
+- `http://app1.example.com` → VM 1 (no port number!)
+- `http://app2.example.com` → VM 2 (no port number!)
+- `http://appgw-ip/nginx` → Still works (path-based routing)
+- `http://appgw-ip/yolox` → Still works (path-based routing)
+- All on port 80 with ONE multi-site listener!
+
+### Why This Approach is Better
+
+**Previous approaches:**
+- ❌ Different ports (81, 82) - requires port numbers in URLs
+- ❌ Delete and recreate listeners - risky, breaks existing config
+
+**This approach:**
+- ✅ Edit existing listener to Multi-site with Multiple/Wildcard
+- ✅ All traffic on port 80 (production-ready)
+- ✅ No port numbers needed
+- ✅ Keeps existing path-based routing working
+- ✅ Uses routing rule priorities to differentiate traffic
+
+---
+
+### Prerequisites
+
+Before starting:
+- ✅ Application Gateway already created (from Part 1-15)
+- ✅ Path-based routing working (`/nginx`, `/yolox`)
+- ✅ Existing listener `test-linsten` on port 80 (Basic type)
+- ✅ 2 VMs with nginx (or use same VM for testing)
+- ✅ Backend pools created: `pool-app1`, `pool-app2` (from Part 16 Step 1)
+
+**If you haven't created backend pools yet:**
+
+1. Go to **"Backend pools"** → **"+ Add"**
+2. Create `pool-app1` pointing to VM 1
+3. Create `pool-app2` pointing to VM 2 (or same VM for testing)
+
+---
+
+### Architecture
+
+```
+Port 80 (HTTP) - ONE Multi-site Listener
+    ↓
+Listener: test-linsten (Multi-site, Multiple hosts)
+    ├─ app1.example.com
+    ├─ app2.example.com
+    └─ (default/IP traffic)
+    ↓
+Routing Rules (by priority):
+    ├─ rule-app1 (Priority 10) → Checks Host: app1.example.com → pool-app1
+    ├─ rule-app2 (Priority 20) → Checks Host: app2.example.com → pool-app2
+    └─ test-rule (Priority 100) → Path-based routing → pool-nginx
+```
+
+---
+
+### Step 1: Edit Existing Listener to Multi-Site
+
+We'll convert your existing `test-linsten` from Basic to Multi-site.
+
+1. Go to **"Application gateways"** → **"appgw-rewrite-demo"**
+2. Click **"Listeners"**
+3. Click on **"test-linsten"**
+4. You'll see the listener configuration
+
+**Current configuration:**
+- **Listener name**: `test-linsten`
+- **Port**: `80`
+- **Listener type**: `Basic` ← We'll change this!
+
+5. Change **Listener type** from `Basic` to **`Multi site`**
+
+**New options appear:**
+- **Host type**: Select **`Multiple/Wildcard`** ⚠️ (Important!)
+- **Host names**: Enter the following (one per line or comma-separated):
+  ```
+  app1.example.com
+  app2.example.com
+  ```
+
+**What this means:**
+- This ONE listener now responds to both `app1.example.com` AND `app2.example.com`
+- It also responds to direct IP traffic (for path-based routing)
+- All on port 80!
+
+6. Click **"Save"** or **"Update"**
+
+**⏱️ Wait**: 2-3 minutes for changes to apply
+
+**✅ Result**: Listener converted to Multi-site with multiple hostnames
+
+---
+
+### Step 2: Create Routing Rule for app1.example.com
+
+Now we'll create a routing rule that checks the Host header and routes to the correct backend.
+
+1. Go to **"Rules"**
+2. Click **"+ Add routing rule"**
+
+**Routing Rule Configuration:**
+- **Rule name**: `rule-app1`
+- **Priority**: `10` ⚠️ (Lower than existing test-rule's 100)
+
+**Listener Tab:**
+- **Listener**: Select **`test-linsten`** (the one we just edited)
+- Click **"Backend targets"** tab
+
+**Backend Targets Tab:**
+- **Target type**: `Backend pool`
+- **Backend target**: `pool-app1`
+- **Backend settings**: `http-settings` (reuse existing)
+
+**HTTP settings:**
+- **Override with new host name**: `No`
+- **Host name override**: Leave empty
+- **Pick host name from backend target**: `No`
+
+3. Click **"Add"**
+
+**⏱️ Wait**: 2-3 minutes
+
+**✅ Result**: Routing rule created for app1.example.com
+
+---
+
+### Step 3: Create Routing Rule for app2.example.com
+
+1. Click **"+ Add routing rule"** again
+
+**Routing Rule Configuration:**
+- **Rule name**: `rule-app2`
+- **Priority**: `20` ⚠️ (Lower than test-rule's 100, higher than rule-app1's 10)
+
+**Listener Tab:**
+- **Listener**: Select **`test-linsten`** (same listener!)
+- Click **"Backend targets"** tab
+
+**Backend Targets Tab:**
+- **Target type**: `Backend pool`
+- **Backend target**: `pool-app2`
+- **Backend settings**: `http-settings` (reuse existing)
+
+2. Click **"Add"**
+
+**⏱️ Wait**: 2-3 minutes
+
+**✅ Result**: Routing rule created for app2.example.com
+
+---
+
+### Step 4: Verify Routing Rules Configuration
+
+Let's check that all rules are configured correctly with proper priorities.
+
+1. Go to **"Rules"**
+2. You should see 3 rules:
+
+| Rule Name | Listener | Priority | Type | Target |
+|-----------|----------|----------|------|--------|
+| rule-app1 | test-linsten | 10 | Basic | pool-app1 |
+| rule-app2 | test-linsten | 20 | Basic | pool-app2 |
+| test-rule | test-linsten | 100 | Path-based | pool-nginx |
+
+**Priority order (lower number = checked first):**
+1. **Priority 10**: `rule-app1` - Checks for `app1.example.com` first
+2. **Priority 20**: `rule-app2` - Checks for `app2.example.com` second
+3. **Priority 100**: `test-rule` - Falls back to path-based routing
+
+**Important:** All 3 rules use the SAME listener (`test-linsten`) but different priorities!
+
+**✅ Result**: All rules configured correctly
+
+---
+
+### Step 5: Configure DNS or Hosts File
+
+Point your domains to the Application Gateway IP.
+
+**Option 1: Edit Hosts File (For Testing)**
+
+**On Windows:**
+1. Open Notepad as Administrator
+2. Open file: `C:\Windows\System32\drivers\etc\hosts`
+3. Add these lines:
+   ```
+   <appgw-public-ip> app1.example.com
+   <appgw-public-ip> app2.example.com
+   ```
+4. Save file
+
+**On Linux/Mac:**
+```bash
+sudo nano /etc/hosts
+
+# Add these lines:
+<appgw-public-ip> app1.example.com
+<appgw-public-ip> app2.example.com
+```
+
+**Option 2: Configure Real DNS (For Production)**
+
+If you own a domain:
+1. Go to your DNS provider
+2. Create A records:
+   - `app1.example.com` → `<appgw-public-ip>`
+   - `app2.example.com` → `<appgw-public-ip>`
+
+**✅ Result**: Domains point to Application Gateway
+
+---
+
+### Step 6: Test Host-Based Routing on Port 80
+
+Now let's test that everything works on port 80 without port numbers!
+
+**Test 1: Access app1.example.com**
+
+```bash
+# Using curl with Host header
+curl -H "Host: app1.example.com" http://<appgw-public-ip>
+
+# Or if hosts file is configured:
+curl http://app1.example.com
+```
+
+**Expected:**
+- nginx page from VM 1
+- No port number needed! ✅
+
+**Test 2: Access app2.example.com**
+
+```bash
+# Using curl with Host header
+curl -H "Host: app2.example.com" http://<appgw-public-ip>
+
+# Or if hosts file is configured:
+curl http://app2.example.com
+```
+
+**Expected:**
+- nginx page from VM 2
+- No port number needed! ✅
+
+**Test 3: Verify Path-Based Routing Still Works**
+
+```bash
+# Test /nginx path
+curl http://<appgw-public-ip>/nginx
+
+# Test /yolox path
+curl http://<appgw-public-ip>/yolox
+```
+
+**Expected:**
+- Both paths still work on port 80
+- URL rewrite still applies
+- No port number needed ✅
+
+**✅ Result**: All routing types work on port 80!
+
+---
+
+### Step 7: Test from Browser
+
+**Test 1: Open Browser**
+
+1. Open browser
+2. Go to: `http://app1.example.com`
+3. **Expected**: nginx page from VM 1
+
+**Test 2: Test Second Domain**
+
+1. Go to: `http://app2.example.com`
+2. **Expected**: nginx page from VM 2
+
+**Test 3: Test Path-Based Routing**
+
+1. Go to: `http://<appgw-public-ip>/nginx`
+2. **Expected**: nginx page with URL rewrite
+
+**Notice:**
+- No port numbers needed! ✅
+- Clean, production-style URLs ✅
+- Both host-based and path-based routing work together on port 80 ✅
+
+---
+
+### Step 8: Understanding How It Works
+
+**Request Processing Flow:**
+
+```
+Request arrives on port 80
+    ↓
+Listener: test-linsten (Multi-site, Multiple hosts)
+    ↓
+Check routing rules by priority (lowest number first)
+    ↓
+Priority 10: rule-app1
+    ├─ Check: Host header = "app1.example.com"?
+    ├─ YES → Route to pool-app1 ✅ STOP
+    └─ NO → Continue to next rule
+    ↓
+Priority 20: rule-app2
+    ├─ Check: Host header = "app2.example.com"?
+    ├─ YES → Route to pool-app2 ✅ STOP
+    └─ NO → Continue to next rule
+    ↓
+Priority 100: test-rule (path-based)
+    ├─ Check: Path = "/nginx"?
+    ├─ YES → Rewrite to "/" → Route to pool-nginx ✅ STOP
+    ├─ Check: Path = "/yolox"?
+    ├─ YES → Rewrite to "/" → Route to pool-nginx ✅ STOP
+    └─ Default → Route to pool-nginx ✅
+```
+
+**Example Requests:**
+
+**Request 1:** `http://app1.example.com/`
+```
+Host: app1.example.com
+Path: /
+Port: 80
+    ↓
+Listener: test-linsten (matches port 80)
+    ↓
+Priority 10: rule-app1
+    Host matches "app1.example.com" ✅
+    → Route to pool-app1
+    → STOP (don't check other rules)
+```
+
+**Request 2:** `http://app2.example.com/`
+```
+Host: app2.example.com
+Path: /
+Port: 80
+    ↓
+Listener: test-linsten (matches port 80)
+    ↓
+Priority 10: rule-app1
+    Host matches "app1.example.com" ❌
+    → Continue
+    ↓
+Priority 20: rule-app2
+    Host matches "app2.example.com" ✅
+    → Route to pool-app2
+    → STOP
+```
+
+**Request 3:** `http://<appgw-ip>/nginx`
+```
+Host: <appgw-ip> (or no Host header)
+Path: /nginx
+Port: 80
+    ↓
+Listener: test-linsten (matches port 80)
+    ↓
+Priority 10: rule-app1
+    Host matches "app1.example.com" ❌
+    → Continue
+    ↓
+Priority 20: rule-app2
+    Host matches "app2.example.com" ❌
+    → Continue
+    ↓
+Priority 100: test-rule
+    Path matches "/nginx" ✅
+    → Rewrite to "/"
+    → Route to pool-nginx
+    → STOP
+```
+
+**Key Points:**
+- ONE listener handles all traffic on port 80
+- Multiple/Wildcard host type allows multiple hostnames
+- Priority determines which rule is checked first
+- First matching rule wins, others are skipped
+- Host-based rules (10, 20) checked before path-based (100)
+
+---
+
+### Step 9: Wildcard Pattern Examples
+
+You can also use wildcard patterns in the Multiple/Wildcard host type.
+
+**Example 1: Match all subdomains**
+
+Edit listener `test-linsten`:
+- **Host names**:
+  ```
+  *.example.com
+  ```
+
+**Result:** Matches ANY subdomain:
+- `app1.example.com` ✅
+- `app2.example.com` ✅
+- `api.example.com` ✅
+- `test.example.com` ✅
+- `anything.example.com` ✅
+
+**Example 2: Mix specific and wildcard**
+
+Edit listener `test-linsten`:
+- **Host names**:
+  ```
+  app1.example.com
+  app2.example.com
+  *.dev.example.com
+  *.staging.example.com
+  ```
+
+**Result:**
+- `app1.example.com` ✅ (specific)
+- `app2.example.com` ✅ (specific)
+- `test.dev.example.com` ✅ (wildcard match)
+- `api.dev.example.com` ✅ (wildcard match)
+- `app1.staging.example.com` ✅ (wildcard match)
+
+**Example 3: Multiple domains**
+
+Edit listener `test-linsten`:
+- **Host names**:
+  ```
+  app1.example.com
+  app2.example.com
+  app1.mycompany.com
+  app2.mycompany.com
+  ```
+
+**Result:** Handles multiple domains on same listener!
+
+---
+
+### Step 10: Configure nginx Virtual Hosts (Optional)
+
+If you want different content for each domain on the same VM, configure nginx virtual hosts.
+
+**SSH to VM:**
+```bash
+ssh azureuser@<vm-ip>
+```
+
+**Create Virtual Host for app1.example.com:**
+
+```bash
+sudo nano /etc/nginx/sites-available/app1
+```
+
+**Add this configuration:**
+```nginx
+server {
+    listen 80;
+    server_name app1.example.com;
+    
+    root /var/www/app1;
+    index index.html;
+    
+    location / {
+        try_files $uri $uri/ =404;
+    }
+}
+```
+
+**Create Virtual Host for app2.example.com:**
+
+```bash
+sudo nano /etc/nginx/sites-available/app2
+```
+
+**Add this configuration:**
+```nginx
+server {
+    listen 80;
+    server_name app2.example.com;
+    
+    root /var/www/app2;
+    index index.html;
+    
+    location / {
+        try_files $uri $uri/ =404;
+    }
+}
+```
+
+**Enable Virtual Hosts:**
+
+```bash
+# Create directories
+sudo mkdir -p /var/www/app1
+sudo mkdir -p /var/www/app2
+
+# Create content
+echo "<h1>Welcome to App1!</h1>" | sudo tee /var/www/app1/index.html
+echo "<h1>Welcome to App2!</h1>" | sudo tee /var/www/app2/index.html
+
+# Enable sites
+sudo ln -s /etc/nginx/sites-available/app1 /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/app2 /etc/nginx/sites-enabled/
+
+# Test configuration
+sudo nginx -t
+
+# Reload nginx
+sudo systemctl reload nginx
+```
+
+**Test Virtual Hosts:**
+
+```bash
+# Test app1
+curl -H "Host: app1.example.com" http://localhost
+# Expected: Welcome to App1!
+
+# Test app2
+curl -H "Host: app2.example.com" http://localhost
+# Expected: Welcome to App2!
+```
+
+**Now test through Application Gateway:**
+
+```bash
+# Test app1
+curl http://app1.example.com
+# Expected: Welcome to App1!
+
+# Test app2
+curl http://app2.example.com
+# Expected: Welcome to App2!
+```
+
+**✅ Result**: Different content for each domain!
+
+---
+
+### Step 11: Complete Architecture
+
+**Final Configuration:**
+
+```
+Internet (Port 80)
+    ↓
+Application Gateway (Public IP)
+    ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Listener: test-linsten (Port 80, Multi-site)               │
+│   Host type: Multiple/Wildcard                              │
+│   Hostnames:                                                │
+│     - app1.example.com                                      │
+│     - app2.example.com                                      │
+│     - (also accepts direct IP traffic)                      │
+└─────────────────────────────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Routing Rules (by priority):                                │
+│   ├─ rule-app1 (Priority 10)                                │
+│   │   └─ Host: app1.example.com → pool-app1                │
+│   ├─ rule-app2 (Priority 20)                                │
+│   │   └─ Host: app2.example.com → pool-app2                │
+│   └─ test-rule (Priority 100, Path-based)                   │
+│       ├─ Path: /nginx → Rewrite to / → pool-nginx          │
+│       ├─ Path: /yolox → Rewrite to / → pool-nginx          │
+│       └─ Default: / → pool-nginx                            │
+└─────────────────────────────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Backend Pools:                                              │
+│   ├─ pool-app1 → VM 1                                       │
+│   ├─ pool-app2 → VM 2                                       │
+│   └─ pool-nginx → VM (original)                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Routing Summary:**
+
+| Request | Port | Host Header | Path | Matches Rule | Priority | Backend | Result |
+|---------|------|-------------|------|--------------|----------|---------|--------|
+| `http://app1.example.com` | 80 | app1.example.com | / | rule-app1 | 10 | pool-app1 | VM 1 content |
+| `http://app2.example.com` | 80 | app2.example.com | / | rule-app2 | 20 | pool-app2 | VM 2 content |
+| `http://appgw-ip/nginx` | 80 | (IP or none) | /nginx | test-rule | 100 | pool-nginx | Rewrite to / |
+| `http://appgw-ip/yolox` | 80 | (IP or none) | /yolox | test-rule | 100 | pool-nginx | Rewrite to / |
+| `http://appgw-ip/` | 80 | (IP or none) | / | test-rule | 100 | pool-nginx | No rewrite |
+
+**All on port 80 - no port numbers needed!** ✅
+
+---
+
+### Step 12: Troubleshooting
+
+**Issue 1: app1.example.com Returns 502 Bad Gateway**
+
+**Symptoms:**
+- `http://app1.example.com` returns 502 error
+- Direct VM access works
+
+**Solutions:**
+
+1. **Check backend health:**
+   - Go to Backend health
+   - Verify pool-app1 shows Healthy
+   - If unhealthy, check VM is running and nginx is active
+
+2. **Check routing rule:**
+   - Go to Rules → rule-app1
+   - Verify listener is: `test-linsten`
+   - Check backend pool is: `pool-app1`
+   - Verify priority is lower than test-rule (e.g., 10 vs 100)
+
+3. **Check listener configuration:**
+   - Go to Listeners → test-linsten
+   - Verify type is: `Multi site`
+   - Check host type is: `Multiple/Wildcard`
+   - Verify `app1.example.com` is in the host names list
+
+**Issue 2: Host-Based Routing Not Working, Falls Back to Path-Based**
+
+**Symptoms:**
+- `http://app1.example.com` shows same content as `http://appgw-ip/`
+- Host header not being checked
+
+**Solutions:**
+
+1. **Check listener type:**
+   - Must be `Multi site`, not `Basic`
+   - Basic listeners don't check Host header
+   - Go to Listeners → test-linsten → Verify type
+
+2. **Check host names are configured:**
+   - Go to Listeners → test-linsten
+   - Verify `app1.example.com` and `app2.example.com` are listed
+   - Check for typos or extra spaces
+
+3. **Check priority:**
+   - Host-based rules must have lower priority number than path-based
+   - rule-app1: 10 ✅
+   - rule-app2: 20 ✅
+   - test-rule: 100 ✅
+
+4. **Test with curl:**
+   ```bash
+   # Test with explicit Host header
+   curl -H "Host: app1.example.com" http://<appgw-ip>
+   ```
+
+**Issue 3: Path-Based Routing Stopped Working**
+
+**Symptoms:**
+- `/nginx` and `/yolox` return 404
+- Host-based routing works
+
+**Solutions:**
+
+1. **Check test-rule priority:**
+   - Must be higher number (lower priority) than host-based rules
+   - Should be: 100 or higher
+
+2. **Check path-based routing is enabled:**
+   - Go to Rules → test-rule
+   - Verify checkbox is checked: "Add multiple targets to create a path-based rule"
+
+3. **Check rewrite set association:**
+   - Verify rewrite set is still associated with path targets
+   - Should have all 3 selected: test-rule, soetintaung, azureuser
+
+**Issue 4: Both Domains Show Same Content**
+
+**Symptoms:**
+- `app1.example.com` and `app2.example.com` show identical content
+- Both route to same backend
+
+**Solutions:**
+
+1. **Check backend pools:**
+   - Verify pool-app1 and pool-app2 point to different VMs
+   - Or if same VM, check nginx virtual hosts are configured
+
+2. **Check routing rules:**
+   - rule-app1 should use pool-app1
+   - rule-app2 should use pool-app2
+   - Verify in Rules section
+
+3. **If using same VM, configure nginx virtual hosts:**
+   - See Step 10 for nginx virtual host configuration
+   - Verify nginx is serving different content based on Host header
+
+**Issue 5: Wildcard Not Matching**
+
+**Symptoms:**
+- Wildcard pattern `*.example.com` not matching subdomains
+
+**Solutions:**
+
+1. **Check wildcard syntax:**
+   - Must be: `*.example.com` (asterisk at beginning)
+   - Not: `example.com.*` or `*example.com`
+
+2. **Check listener host type:**
+   - Must be: `Multiple/Wildcard`
+   - Not: `Single`
+
+3. **Test with curl:**
+   ```bash
+   # Test subdomain
+   curl -H "Host: test.example.com" http://<appgw-ip>
+   ```
+
+---
+
+### Step 13: Comparison of Approaches
+
+Let's compare all three approaches we've covered:
+
+| Feature | Approach 1: Different Ports | Approach 2: Delete & Recreate | Approach 3: Multiple/Wildcard |
+|---------|----------------------------|-------------------------------|-------------------------------|
+| **Port 80 for all traffic** | ❌ No (uses 81, 82) | ✅ Yes | ✅ Yes |
+| **Port numbers in URLs** | ❌ Required | ✅ Not needed | ✅ Not needed |
+| **Risk to existing config** | ✅ Low (keeps existing) | ❌ High (deletes listener) | ✅ Low (edits existing) |
+| **Number of listeners** | 3 (one per port) | 3 (one per host + default) | 1 (handles all) |
+| **Complexity** | ✅ Simple | ❌ Complex | ✅ Moderate |
+| **Production-ready** | ❌ No (port numbers) | ✅ Yes | ✅ Yes (BEST!) |
+| **Wildcard support** | ❌ No | ✅ Yes | ✅ Yes |
+| **Ease of adding new hosts** | ❌ Need new port | ❌ Need new listener | ✅ Just add to list |
+
+**Recommendation:** Use **Approach 3 (Multiple/Wildcard)** for production!
+
+---
+
+### Summary of Part 17
+
+**What we built:**
+- ✅ ONE Multi-site listener on port 80 handling multiple domains
+- ✅ Multiple/Wildcard host type for flexible hostname matching
+- ✅ Host-based routing without port numbers
+- ✅ Path-based routing still working
+- ✅ All traffic on port 80 (production-ready!)
+
+**Configuration:**
+- 1 Listener: `test-linsten` (Multi-site, Multiple/Wildcard)
+- 3 Routing rules: `rule-app1` (10), `rule-app2` (20), `test-rule` (100)
+- 3 Backend pools: `pool-app1`, `pool-app2`, `pool-nginx`
+
+**URLs (all on port 80):**
+- `http://app1.example.com` → VM 1 ✅
+- `http://app2.example.com` → VM 2 ✅
+- `http://appgw-ip/nginx` → VM with rewrite ✅
+- `http://appgw-ip/yolox` → VM with rewrite ✅
+
+**Key learnings:**
+- ✅ Multiple/Wildcard host type allows multiple hostnames on ONE listener
+- ✅ Priority determines routing order (lower number = higher priority)
+- ✅ Host-based rules checked before path-based rules
+- ✅ Wildcard patterns (`*.example.com`) supported
+- ✅ No need for multiple listeners or different ports
+- ✅ Production-ready with clean URLs
+
+**Advantages over other approaches:**
+- ✅ No port numbers needed (port 80 for everything)
+- ✅ Easy to add new domains (just edit listener host names)
+- ✅ Low risk (edits existing listener, doesn't delete)
+- ✅ Supports wildcards for flexible matching
+- ✅ Fewer listeners to manage (1 instead of 3)
+
+**This is the BEST approach for production Application Gateway configuration!** 🚀
+
+Great job! You now understand how to use Multiple/Wildcard host type for production-ready Application Gateway configuration! 🎉
