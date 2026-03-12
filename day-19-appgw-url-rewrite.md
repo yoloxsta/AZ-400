@@ -235,8 +235,28 @@ Now we'll create rewrites for `/nginx` and `/yolox` to both rewrite to `/`.
 
 **Rewrite Set:**
 - **Name**: `rewrite-to-root`
-- **Associated routing rules**: Leave empty for now (we'll associate later)
-- Click **"Next: Rewrite rule configuration"**
+
+**Associated routing rules:**
+
+**IMPORTANT - Critical Step for Path-Based Routing!**
+
+When you see the routing rules list, you'll see 3 options:
+- `test-rule` - Path-based rule (Default rewrite setting)
+- `soetintaung` - Path-based rule (this is your `/nginx` path)
+- `azureuser` - Path-based rule (this is your `/yolox` path)
+
+**You MUST select ALL 3 checkboxes:**
+- ☑️ **test-rule** (main routing rule)
+- ☑️ **soetintaung** (`/nginx` path target)
+- ☑️ **azureuser** (`/yolox` path target)
+
+**Why select all 3?**
+- ❌ Selecting only `test-rule` → Only `/nginx` works, `/yolox` fails
+- ✅ Selecting all 3 → Both `/nginx` and `/yolox` work correctly
+
+**This is because path-based routing requires explicit association with each path target, not just the main rule.**
+
+Click **"Next: Rewrite rule configuration"**
 
 ### Step 3: Add First Rewrite Rule (/nginx → /)
 
@@ -617,6 +637,128 @@ You can add more paths that rewrite to `/`.
 
 ## Part 12: Understanding the Configuration
 
+### Visual Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                         Internet                             │
+│                    (Client Browser)                          │
+└──────────────────────┬──────────────────────────────────────┘
+                       │
+                       ↓
+┌─────────────────────────────────────────────────────────────┐
+│           Application Gateway (Public IP)                    │
+│                                                              │
+│  ┌────────────────────────────────────────────────────┐    │
+│  │  Listener: listener-http (Port 80)                 │    │
+│  └────────────────────┬───────────────────────────────┘    │
+│                       │                                      │
+│  ┌────────────────────▼───────────────────────────────┐    │
+│  │  Routing Rule: rule-basic (Path-based)             │    │
+│  │                                                     │    │
+│  │  ┌─────────────────────────────────────────────┐  │    │
+│  │  │ Path: /nginx                                │  │    │
+│  │  │ Target: soetintaung                         │  │    │
+│  │  │ Rewrite Set: rewrite-to-root ✅             │  │    │
+│  │  └─────────────────────────────────────────────┘  │    │
+│  │                                                     │    │
+│  │  ┌─────────────────────────────────────────────┐  │    │
+│  │  │ Path: /yolox                                │  │    │
+│  │  │ Target: azureuser                           │  │    │
+│  │  │ Rewrite Set: rewrite-to-root ✅             │  │    │
+│  │  └─────────────────────────────────────────────┘  │    │
+│  │                                                     │    │
+│  │  ┌─────────────────────────────────────────────┐  │    │
+│  │  │ Default Path: /                             │  │    │
+│  │  │ No rewrite                                  │  │    │
+│  │  └─────────────────────────────────────────────┘  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                       │                                      │
+│  ┌────────────────────▼───────────────────────────────┐    │
+│  │  Rewrite Set: rewrite-to-root                      │    │
+│  │                                                     │    │
+│  │  Rule 1: /nginx → /                                │    │
+│  │  Rule 2: /yolox → /                                │    │
+│  └─────────────────────────────────────────────────────┘    │
+│                       │                                      │
+│  ┌────────────────────▼───────────────────────────────┐    │
+│  │  Backend Pool: pool-nginx                          │    │
+│  └─────────────────────────────────────────────────────┘    │
+└──────────────────────┬──────────────────────────────────────┘
+                       │
+                       ↓
+┌─────────────────────────────────────────────────────────────┐
+│                    VM with nginx                             │
+│              (Receives request for /)                        │
+│                                                              │
+│  /var/www/html/index.html (nginx default page)              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Request Flow for /nginx
+
+```
+1. Client Request
+   http://appgw-ip/nginx
+   ↓
+2. Application Gateway
+   Listener: listener-http (Port 80)
+   ↓
+3. Routing Rule: rule-basic
+   Matches path: /nginx
+   Target: soetintaung
+   ↓
+4. Rewrite Set: rewrite-to-root
+   Associated with: soetintaung ✅
+   ↓
+5. Rewrite Rule: rule-nginx-to-root
+   Condition: uri_path = /nginx ✅ MATCH
+   Action: Rewrite to /
+   ↓
+6. Modified Request
+   http://vm-ip/
+   ↓
+7. Backend Pool: pool-nginx
+   ↓
+8. VM nginx
+   Serves: /var/www/html/index.html
+   ↓
+9. Response
+   nginx default welcome page
+```
+
+### Request Flow for /yolox
+
+```
+1. Client Request
+   http://appgw-ip/yolox
+   ↓
+2. Application Gateway
+   Listener: listener-http (Port 80)
+   ↓
+3. Routing Rule: rule-basic
+   Matches path: /yolox
+   Target: azureuser
+   ↓
+4. Rewrite Set: rewrite-to-root
+   Associated with: azureuser ✅
+   ↓
+5. Rewrite Rule: rule-yolox-to-root
+   Condition: uri_path = /yolox ✅ MATCH
+   Action: Rewrite to /
+   ↓
+6. Modified Request
+   http://vm-ip/
+   ↓
+7. Backend Pool: pool-nginx
+   ↓
+8. VM nginx
+   Serves: /var/www/html/index.html
+   ↓
+9. Response
+   nginx default welcome page (same as /nginx!)
+```
+
 ### What We Built
 
 ```
@@ -686,7 +828,37 @@ nginx serves: /var/www/html/index.html
 
 ## Part 13: Troubleshooting
 
-### Issue 1: /nginx Returns 404
+### Issue 1: /nginx Works but /yolox Doesn't Work
+
+**Symptoms:**
+- `/nginx` returns nginx page ✅
+- `/yolox` returns 404 or error ❌
+
+**Root Cause:**
+You only selected `test-rule` when associating the rewrite set, not all 3 path targets.
+
+**Solution:**
+
+1. Go to **"Rewrites"** → **"rewrite-to-root"**
+2. Check **"Associated routing rules"**
+3. You should see all 3 selected:
+   - ☑️ test-rule
+   - ☑️ soetintaung (`/nginx`)
+   - ☑️ azureuser (`/yolox`)
+4. If only `test-rule` is selected, click **"Edit"**
+5. Select all 3 checkboxes
+6. Click **"Save"**
+7. Wait 2-3 minutes
+8. Test again
+
+**Why this happens:**
+- Path-based routing requires explicit association with each path target
+- Selecting only the main rule doesn't automatically apply to all paths
+- Each path target needs its own association
+
+**✅ Fix**: Select all 3 routing rules/paths when creating rewrite set
+
+### Issue 2: /nginx Returns 404
 
 **Symptoms:**
 - Accessing `/nginx` returns 404
@@ -710,7 +882,7 @@ nginx serves: /var/www/html/index.html
    - Changes take 2-3 minutes
    - Refresh browser (clear cache)
 
-### Issue 2: /nginx Shows Different Content
+### Issue 3: /nginx Shows Different Content
 
 **Symptoms:**
 - `/nginx` shows different page than `/`
@@ -734,7 +906,7 @@ nginx serves: /var/www/html/index.html
    ```
    - Should show `GET /` not `GET /nginx`
 
-### Issue 3: Both Paths Don't Work
+### Issue 4: Both Paths Don't Work
 
 **Symptoms:**
 - Neither `/nginx` nor `/yolox` work
@@ -759,7 +931,7 @@ nginx serves: /var/www/html/index.html
    - Create new one
    - Re-associate with routing rule
 
-### Issue 4: Configuration Changes Not Applied
+### Issue 5: Configuration Changes Not Applied
 
 **Symptoms:**
 - Made changes but still seeing old behavior
