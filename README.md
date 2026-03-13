@@ -147,7 +147,7 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - Priority-based routing
   - **Production-ready patterns**
 
-- **[Day 20: Production Application Gateway with HTTPS](day-20-appgw-production-https.md)** ⭐ NEW
+- **[Day 20: Production Application Gateway with HTTPS](day-20-appgw-production-https.md)** ⭐
   - Complete production setup from scratch
   - Domain purchase and Azure DNS configuration
   - SSL certificates with Let's Encrypt (Certbot)
@@ -156,6 +156,17 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - HTTP to HTTPS redirect
   - Certificate renewal process
   - **Real-world production deployment**
+
+- **[Day 21: Azure Storage - Complete Guide](day-21-azure-storage.md)** ⭐ NEW
+  - All Azure Storage services (Blob, File, Queue, Table, Disk)
+  - Storage account types and redundancy
+  - Access tiers and lifecycle management
+  - SMB file shares (Windows/Linux mounting)
+  - Message queues for async processing
+  - NoSQL Table Storage
+  - Managed disks for VMs
+  - Security, RBAC, and cost optimization
+  - **Complete hands-on labs via Portal**
 
 ## How to Use This Guide
 
@@ -177,6 +188,7 @@ Throughout this course, you'll build:
 - Application Gateway with advanced routing
 - Production HTTPS setup with Let's Encrypt
 - Multi-domain hosting with wildcard certificates
+- Complete Azure Storage solutions (Blob, File, Queue, Table, Disk)
 
 ## Time Commitment
 
