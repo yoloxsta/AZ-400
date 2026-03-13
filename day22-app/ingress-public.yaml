@@ -1,0 +1,27 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: day22-demo-api-public
+  namespace: day22-app
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    traefik.ingress.kubernetes.io/router.priority: "10"
+spec:
+  rules:
+  - http:
+      paths:
+      # Public endpoints - no authentication required
+      - path: /
+        pathType: Exact
+        backend:
+          service:
+            name: day22-demo-api
+            port:
+              number: 80
+      - path: /health
+        pathType: Exact
+        backend:
+          service:
+            name: day22-demo-api
+            port:
+              number: 80

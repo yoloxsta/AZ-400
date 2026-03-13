@@ -157,7 +157,7 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - Certificate renewal process
   - **Real-world production deployment**
 
-- **[Day 21: Azure Storage - Complete Guide](day-21-azure-storage.md)** ⭐ NEW
+- **[Day 21: Azure Storage - Complete Guide](day-21-azure-storage.md)** ⭐
   - All Azure Storage services (Blob, File, Queue, Table, Disk)
   - Storage account types and redundancy
   - Access tiers and lifecycle management
@@ -167,6 +167,17 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - Managed disks for VMs
   - Security, RBAC, and cost optimization
   - **Complete hands-on labs via Portal**
+
+- **[Day 22: AKS with Traefik Ingress & Authentication](day-22-aks-traefik-auth.md)** ⭐ NEW
+  - Complete Flask REST API application
+  - Docker containerization and ACR
+  - AKS cluster deployment
+  - Traefik as public ingress controller
+  - BasicAuth authentication middleware
+  - Public and protected endpoints
+  - Load balancing across pods
+  - Production-ready security pattern
+  - **Real-world application with full code**
 
 ## How to Use This Guide
 
@@ -189,6 +200,7 @@ Throughout this course, you'll build:
 - Production HTTPS setup with Let's Encrypt
 - Multi-domain hosting with wildcard certificates
 - Complete Azure Storage solutions (Blob, File, Queue, Table, Disk)
+- Real-world REST API with authentication and load balancing
 
 ## Time Commitment
 

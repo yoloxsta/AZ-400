@@ -1,0 +1,9 @@
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: basic-auth
+  namespace: day22-app
+spec:
+  basicAuth:
+    secret: traefik-basic-auth
+    removeHeader: false

@@ -1,0 +1,22 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: day22-demo-api-protected
+  namespace: day22-app
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    # Apply BasicAuth middleware to these routes
+    traefik.ingress.kubernetes.io/router.middlewares: day22-app-basic-auth@kubernetescrd
+    traefik.ingress.kubernetes.io/router.priority: "20"
+spec:
+  rules:
+  - http:
+      paths:
+      # Protected endpoints - authentication required
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: day22-demo-api
+            port:
+              number: 80
