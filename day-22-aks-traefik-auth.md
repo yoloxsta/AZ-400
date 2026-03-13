@@ -28,21 +28,303 @@ Deploy a real-world application on Azure Kubernetes Service (AKS) with:
 
 ## Architecture Overview
 
-### What We'll Build
+### Complete Visual Architecture
 
 ```
-Internet (Public)
-    ↓
-Azure Load Balancer (Public IP)
-    ↓
-Traefik Ingress Controller
-    ├─ Public Endpoints: /, /health (No Auth)
-    └─ Protected Endpoints: /api/* (BasicAuth Required)
-        ↓
-    Backend API Service (Private)
-        ↓
-    API Pods (3 replicas)
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           INTERNET (Public)                              │
+│                    Users, Mobile Apps, Browsers                          │
+└────────────────────────────────┬────────────────────────────────────────┘
+                                 │
+                                 │ HTTP Request
+                                 │ http://20.123.45.67/api/users
+                                 ↓
+┌─────────────────────────────────────────────────────────────────────────┐
+│                      AZURE LOAD BALANCER                                 │
+│                   Public IP: 20.123.45.67                                │
+│                   (Created automatically by AKS)                         │
+└────────────────────────────────┬────────────────────────────────────────┘
+                                 │
+                                 │ Routes to Traefik Service
+                                 ↓
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    TRAEFIK INGRESS CONTROLLER                            │
+│                    (Running in AKS - traefik namespace)                  │
+│                                                                           │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │                    INGRESS RULES                                 │   │
+│  │                                                                   │   │
+│  │  Rule 1 (Priority 10): Public Endpoints                         │   │
+│  │  ├─ Path: /          → No Auth → Forward to Backend             │   │
+│  │  └─ Path: /health    → No Auth → Forward to Backend             │   │
+│  │                                                                   │   │
+│  │  Rule 2 (Priority 20): Protected Endpoints                      │   │
+│  │  └─ Path: /api/*     → BasicAuth Required → Forward to Backend  │   │
+│  │                          ↓                                        │   │
+│  │                    Check Credentials                             │   │
+│  │                    (admin:secure123)                             │   │
+│  │                          ↓                                        │   │
+│  │                    ✅ Valid → Forward                            │   │
+│  │                    ❌ Invalid → 401 Unauthorized                 │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+└────────────────────────────────┬────────────────────────────────────────┘
+                                 │
+                                 │ Forward to Service
+                                 │ (Internal cluster network)
+                                 ↓
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    KUBERNETES SERVICE                                    │
+│                    Name: day22-demo-api                                  │
+│                    Type: ClusterIP (Private - No Public IP)              │
+│                    IP: 10.0.234.56 (Internal only)                       │
+│                                                                           │
+│                    Load Balances Between Pods                            │
+└──────────────┬──────────────┬──────────────┬─────────────────────────────┘
+               │              │              │
+               │              │              │
+               ↓              ↓              ↓
+┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐
+│   POD 1          │ │   POD 2          │ │   POD 3          │
+│   IP: 10.244.1.5 │ │   IP: 10.244.2.5 │ │   IP: 10.244.1.6 │
+│                  │ │                  │ │                  │
+│ ┌──────────────┐ │ │ ┌──────────────┐ │ │ ┌──────────────┐ │
+│ │ Flask API    │ │ │ │ Flask API    │ │ │ │ Flask API    │ │
+│ │ Port: 5000   │ │ │ │ Port: 5000   │ │ │ │ Port: 5000   │ │
+│ │              │ │ │ │              │ │ │ │              │ │
+│ │ Endpoints:   │ │ │ │ Endpoints:   │ │ │ │ Endpoints:   │ │
+│ │ /            │ │ │ │ /            │ │ │ │ /            │ │
+│ │ /health      │ │ │ │ /health      │ │ │ │ /health      │ │
+│ │ /api/users   │ │ │ │ /api/users   │ │ │ │ /api/users   │ │
+│ │ /api/products│ │ │ │ /api/products│ │ │ │ /api/products│ │
+│ └──────────────┘ │ │ └──────────────┘ │ │ └──────────────┘ │
+│                  │ │                  │ │                  │
+│ Node 1           │ │ Node 2           │ │ Node 1           │
+└──────────────────┘ └──────────────────┘ └──────────────────┘
 ```
+
+---
+
+### Step-by-Step Request Flow
+
+#### Scenario 1: Public Endpoint (No Authentication)
+
+**User Request:** `curl http://20.123.45.67/health`
+
+```
+Step 1: User → Internet
+┌─────────┐
+│ Browser │ Request: GET http://20.123.45.67/health
+└────┬────┘
+     │
+     ↓
+
+Step 2: Internet → Azure Load Balancer
+┌──────────────────┐
+│ Azure LB         │ Receives request on public IP
+│ 20.123.45.67:80  │ Forwards to Traefik service
+└────┬─────────────┘
+     │
+     ↓
+
+Step 3: Load Balancer → Traefik Pod
+┌──────────────────┐
+│ Traefik Pod      │ Checks ingress rules
+│ (traefik ns)     │ Path: /health
+└────┬─────────────┘ Rule: Public (Priority 10)
+     │               Auth: NOT REQUIRED ✅
+     │
+     ↓
+
+Step 4: Traefik → Backend Service
+┌──────────────────┐
+│ Service          │ ClusterIP: 10.0.234.56
+│ day22-demo-api   │ Selects one of 3 pods
+└────┬─────────────┘ (Round-robin load balancing)
+     │
+     ↓
+
+Step 5: Service → Pod (Random Selection)
+┌──────────────────┐
+│ Pod 2            │ Receives request
+│ 10.244.2.5:5000  │ Flask processes /health
+└────┬─────────────┘ Returns: {"status": "healthy"}
+     │
+     ↓
+
+Step 6: Response Back to User
+┌─────────┐
+│ Browser │ Receives: 200 OK
+└─────────┘ {"status": "healthy", "hostname": "pod-2"}
+
+✅ SUCCESS - No authentication needed!
+```
+
+---
+
+#### Scenario 2: Protected Endpoint WITHOUT Authentication (FAILS)
+
+**User Request:** `curl http://20.123.45.67/api/users`
+
+```
+Step 1: User → Internet
+┌─────────┐
+│ Browser │ Request: GET http://20.123.45.67/api/users
+└────┬────┘ No credentials provided
+     │
+     ↓
+
+Step 2: Internet → Azure Load Balancer
+┌──────────────────┐
+│ Azure LB         │ Forwards to Traefik
+│ 20.123.45.67:80  │
+└────┬─────────────┘
+     │
+     ↓
+
+Step 3: Load Balancer → Traefik Pod
+┌──────────────────┐
+│ Traefik Pod      │ Checks ingress rules
+│ (traefik ns)     │ Path: /api/users
+└────┬─────────────┘ Rule: Protected (Priority 20)
+     │               Auth: REQUIRED ❌
+     │               Middleware: basic-auth
+     │
+     ↓
+     
+Step 4: Traefik Checks Authentication
+┌──────────────────┐
+│ BasicAuth        │ Looks for Authorization header
+│ Middleware       │ Header: NOT FOUND ❌
+└────┬─────────────┘ 
+     │
+     ↓
+     
+Step 5: Traefik Rejects Request
+┌──────────────────┐
+│ Traefik          │ Does NOT forward to backend
+│                  │ Returns: 401 Unauthorized
+└────┬─────────────┘
+     │
+     ↓
+
+Step 6: Response Back to User
+┌─────────┐
+│ Browser │ Receives: 401 Unauthorized
+└─────────┘ "Authentication required"
+
+❌ BLOCKED - Backend never receives request!
+```
+
+---
+
+#### Scenario 3: Protected Endpoint WITH Authentication (SUCCESS)
+
+**User Request:** `curl -u admin:secure123 http://20.123.45.67/api/users`
+
+```
+Step 1: User → Internet
+┌─────────┐
+│ Browser │ Request: GET http://20.123.45.67/api/users
+└────┬────┘ Header: Authorization: Basic YWRtaW46c2VjdXJlMTIz
+     │      (Base64 encoded: admin:secure123)
+     ↓
+
+Step 2: Internet → Azure Load Balancer
+┌──────────────────┐
+│ Azure LB         │ Forwards to Traefik
+│ 20.123.45.67:80  │
+└────┬─────────────┘
+     │
+     ↓
+
+Step 3: Load Balancer → Traefik Pod
+┌──────────────────┐
+│ Traefik Pod      │ Checks ingress rules
+│ (traefik ns)     │ Path: /api/users
+└────┬─────────────┘ Rule: Protected (Priority 20)
+     │               Auth: REQUIRED
+     │               Middleware: basic-auth
+     ↓
+     
+Step 4: Traefik Checks Authentication
+┌──────────────────┐
+│ BasicAuth        │ Reads Authorization header
+│ Middleware       │ Decodes: admin:secure123
+└────┬─────────────┘ Checks against secret
+     │               Hash matches ✅
+     ↓
+     
+Step 5: Traefik Forwards to Service
+┌──────────────────┐
+│ Service          │ ClusterIP: 10.0.234.56
+│ day22-demo-api   │ Selects Pod 1
+└────┬─────────────┘
+     │
+     ↓
+
+Step 6: Service → Pod 1
+┌──────────────────┐
+│ Pod 1            │ Receives request
+│ 10.244.1.5:5000  │ Flask processes /api/users
+└────┬─────────────┘ Returns: {"users": [...]}
+     │
+     ↓
+
+Step 7: Response Back to User
+┌─────────┐
+│ Browser │ Receives: 200 OK
+└─────────┘ {"total": 3, "users": [...]}
+
+✅ SUCCESS - Authentication passed!
+```
+
+---
+
+### Network Layers Explained
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    LAYER 1: INTERNET                             │
+│  - Public network                                                │
+│  - Anyone can access                                             │
+│  - IP: 20.123.45.67 (Azure Load Balancer public IP)             │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│                    LAYER 2: AZURE LOAD BALANCER                  │
+│  - Managed by Azure                                              │
+│  - Automatically created when Traefik service type=LoadBalancer  │
+│  - Routes traffic to Traefik pods                                │
+│  - Health checks Traefik                                         │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│                    LAYER 3: TRAEFIK (INGRESS)                    │
+│  - Runs inside AKS cluster                                       │
+│  - Has public IP via LoadBalancer service                        │
+│  - Reads Ingress rules                                           │
+│  - Applies authentication middleware                             │
+│  - Routes to internal services                                   │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│                    LAYER 4: KUBERNETES SERVICE                   │
+│  - Type: ClusterIP (PRIVATE - no public IP)                      │
+│  - Only accessible from inside cluster                           │
+│  - Load balances between pods                                    │
+│  - IP: 10.0.234.56 (internal only)                               │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│                    LAYER 5: PODS (APPLICATION)                   │
+│  - 3 replicas running Flask API                                  │
+│  - Each has unique IP (10.244.x.x)                               │
+│  - Not accessible from internet                                  │
+│  - Only accessible via Service                                   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
 
 ### Why This Architecture?
 
@@ -58,13 +340,224 @@ Traefik Ingress Controller
 
 ### Components
 
-| Component | Purpose | Access |
-|-----------|---------|--------|
-| Flask API | Backend application | Private (ClusterIP) |
-| Traefik | Ingress controller | Public (LoadBalancer) |
-| BasicAuth | Authentication middleware | Protects /api/* |
-| ACR | Container registry | Private |
-| AKS | Kubernetes cluster | Private |
+| Component | Purpose | Access | IP Type |
+|-----------|---------|--------|---------|
+| Flask API | Backend application | Private (ClusterIP) | Internal: 10.0.x.x |
+| Traefik | Ingress controller | Public (LoadBalancer) | Public: 20.123.45.67 |
+| BasicAuth | Authentication middleware | Protects /api/* | N/A |
+| ACR | Container registry | Private | N/A |
+| AKS | Kubernetes cluster | Private | Internal network |
+
+---
+
+### Comparison: With vs Without Traefik
+
+#### WITHOUT Traefik (Bad - Direct Exposure)
+
+```
+Internet
+    ↓
+Azure Load Balancer (Public IP: 20.123.45.67)
+    ↓
+Backend Service (Type: LoadBalancer - Public IP)
+    ↓
+API Pods
+
+Problems:
+❌ Backend directly exposed to internet
+❌ No authentication layer
+❌ No rate limiting
+❌ No SSL termination
+❌ Hard to add security features
+❌ Each service needs its own public IP (expensive)
+```
+
+#### WITH Traefik (Good - Gateway Pattern)
+
+```
+Internet
+    ↓
+Azure Load Balancer (Public IP: 20.123.45.67)
+    ↓
+Traefik Ingress (Authentication, Rate Limiting, SSL)
+    ↓
+Backend Service (Type: ClusterIP - Private)
+    ↓
+API Pods
+
+Benefits:
+✅ Backend is private (no public IP)
+✅ Authentication at gateway
+✅ Single public IP for all services
+✅ Easy to add security features
+✅ SSL termination at ingress
+✅ Production-ready pattern
+```
+
+---
+
+### IP Address Breakdown
+
+**Public IPs (Accessible from Internet):**
+- `20.123.45.67` - Azure Load Balancer (Traefik entry point)
+
+**Private IPs (Only Inside Cluster):**
+- `10.0.234.56` - Service ClusterIP (day22-demo-api)
+- `10.244.1.5` - Pod 1 IP
+- `10.244.2.5` - Pod 2 IP
+- `10.244.1.6` - Pod 3 IP
+
+**How to Access:**
+- ✅ From Internet: `http://20.123.45.67/api/users` (via Traefik)
+- ❌ From Internet: `http://10.0.234.56/api/users` (blocked - private IP)
+- ✅ From Inside Cluster: `http://10.0.234.56/api/users` (works)
+
+---
+
+### Authentication Flow Diagram
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                    REQUEST ARRIVES                                │
+│                    http://20.123.45.67/api/users                  │
+└────────────────────────────┬─────────────────────────────────────┘
+                             │
+                             ↓
+                    ┌────────────────┐
+                    │ Traefik Checks │
+                    │ Ingress Rules  │
+                    └────────┬───────┘
+                             │
+                ┌────────────┴────────────┐
+                │                         │
+                ↓                         ↓
+    ┌───────────────────┐     ┌───────────────────┐
+    │ Path: /           │     │ Path: /api/*      │
+    │ Path: /health     │     │                   │
+    │ Priority: 10      │     │ Priority: 20      │
+    │ Auth: NO          │     │ Auth: YES         │
+    └─────────┬─────────┘     └─────────┬─────────┘
+              │                         │
+              │                         ↓
+              │              ┌──────────────────────┐
+              │              │ BasicAuth Middleware │
+              │              │ Checks Credentials   │
+              │              └──────────┬───────────┘
+              │                         │
+              │              ┌──────────┴──────────┐
+              │              │                     │
+              │              ↓                     ↓
+              │    ┌─────────────────┐   ┌─────────────────┐
+              │    │ Valid           │   │ Invalid         │
+              │    │ Credentials     │   │ Credentials     │
+              │    └────────┬────────┘   └────────┬────────┘
+              │             │                     │
+              │             ↓                     ↓
+              │    ┌─────────────────┐   ┌─────────────────┐
+              │    │ Forward to      │   │ Return 401      │
+              │    │ Backend         │   │ Unauthorized    │
+              │    └────────┬────────┘   └─────────────────┘
+              │             │
+              └─────────────┴─────────────┐
+                                          │
+                                          ↓
+                              ┌───────────────────┐
+                              │ Backend Service   │
+                              │ (ClusterIP)       │
+                              └─────────┬─────────┘
+                                        │
+                        ┌───────────────┼───────────────┐
+                        │               │               │
+                        ↓               ↓               ↓
+                   ┌────────┐      ┌────────┐      ┌────────┐
+                   │ Pod 1  │      │ Pod 2  │      │ Pod 3  │
+                   └────────┘      └────────┘      └────────┘
+```
+
+---
+
+### Real-World Example: Mobile App Backend
+
+**Scenario:** You have a mobile app that needs to call your API
+
+**Without Traefik:**
+```
+Mobile App → http://backend-pod-ip:5000/api/users
+Problems:
+❌ Pod IP changes when pod restarts
+❌ No authentication
+❌ Direct pod exposure
+❌ No load balancing
+```
+
+**With Traefik:**
+```
+Mobile App → http://20.123.45.67/api/users
+           → Traefik checks authentication
+           → Forwards to healthy pod
+           → Returns data
+
+Benefits:
+✅ Stable public IP (doesn't change)
+✅ Authentication enforced
+✅ Load balanced across pods
+✅ SSL/TLS termination
+✅ Rate limiting possible
+```
+
+---
+
+### Key Concepts Explained
+
+**1. ClusterIP vs LoadBalancer**
+
+```
+ClusterIP (Backend Service):
+- Private IP only (10.0.234.56)
+- Only accessible inside cluster
+- No public IP assigned
+- Free (no Azure Load Balancer cost)
+- Use for: Internal services
+
+LoadBalancer (Traefik Service):
+- Gets public IP (20.123.45.67)
+- Accessible from internet
+- Azure creates Load Balancer
+- Costs money
+- Use for: Public entry points
+```
+
+**2. Ingress Rules Priority**
+
+```
+Priority 10 (Lower number = Lower priority):
+- Paths: /, /health
+- No authentication
+- Checked SECOND
+
+Priority 20 (Higher number = Higher priority):
+- Paths: /api/*
+- Requires authentication
+- Checked FIRST
+
+Why? Higher priority rules are evaluated first.
+If /api/users matches Priority 20, it uses that rule.
+If /health doesn't match Priority 20, it falls back to Priority 10.
+```
+
+**3. Middleware Execution**
+
+```
+Request: http://20.123.45.67/api/users
+
+Step 1: Traefik receives request
+Step 2: Matches ingress rule (Priority 20)
+Step 3: Sees middleware annotation: day22-app-basic-auth@kubernetescrd
+Step 4: Executes BasicAuth middleware
+Step 5: Middleware checks Authorization header
+Step 6a: If valid → Forward to backend
+Step 6b: If invalid → Return 401
+```
 
 ---
 
