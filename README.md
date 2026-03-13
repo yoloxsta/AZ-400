@@ -97,13 +97,65 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - Mobile developer documentation
   - **All via Azure CLI commands**
 
-- **[Day 14: AKS Deployment with AGIC - Portal](day-14-aks-deployment-agic-portal.md)** ⭐ NEW
+- **[Day 14: AKS Deployment with AGIC - Portal](day-14-aks-deployment-agic-portal.md)** ⭐
   - Same as Day 13 but using Azure Portal (GUI)
   - Step-by-step Portal navigation
   - Visual configuration walkthrough
   - Internal AGIC → Front Door → Public access
   - Perfect for learning and understanding
   - **All via Azure Portal interface**
+
+### Week 4: API Gateway & Load Balancing
+
+- **[Day 15: API Management with AKS - Portal](day-15-apim-aks-portal.md)** ⭐
+  - Azure API Management integration with AKS
+  - Internal AKS with private APIM
+  - API policies and transformations
+  - Rate limiting and caching
+  - Developer portal configuration
+  - **All via Azure Portal**
+
+- **[Day 16: AKS with APIM Integration - Portal](day-16-aks-apim-integration-portal.md)** ⭐
+  - Complete APIM + AKS integration
+  - Virtual network integration
+  - Private endpoint configuration
+  - API versioning and revisions
+  - OAuth 2.0 authentication
+  - **Production-ready setup**
+
+- **[Day 17: Traefik API Gateway with JWT](day-17-traefik-api-gateway-jwt.md)** ⭐
+  - Traefik as Kubernetes Ingress Controller
+  - JWT authentication and validation
+  - Middleware configuration
+  - TLS/SSL termination
+  - Rate limiting and circuit breaker
+  - **Complete security implementation**
+
+- **[Day 18: Application Gateway - Path & Host Based Routing](day-18-application-gateway.md)** ⭐
+  - Azure Application Gateway fundamentals
+  - Path-based routing (`/api`, `/web`)
+  - Host-based routing (multiple domains)
+  - Health probes and backend pools
+  - 4 VMs with nginx deployment
+  - **Complete testing and verification**
+
+- **[Day 19: Application Gateway - URL Rewrite & Wildcard](day-19-appgw-url-rewrite.md)** ⭐
+  - URL rewrite rules (multiple paths to same backend)
+  - Path-based routing with rewrites
+  - Wildcard host routing (`*.domain.com`)
+  - Multiple/Wildcard host type usage
+  - Priority-based routing
+  - **Production-ready patterns**
+
+- **[Day 20: Production Application Gateway with HTTPS](day-20-appgw-production-https.md)** ⭐ NEW
+  - Complete production setup from scratch
+  - Domain purchase and Azure DNS configuration
+  - SSL certificates with Let's Encrypt (Certbot)
+  - Wildcard certificate generation
+  - End-to-end HTTPS setup
+  - HTTP to HTTPS redirect
+  - Certificate renewal process
+  - **Real-world production deployment**
 
 ## How to Use This Guide
 
@@ -121,6 +173,10 @@ Throughout this course, you'll build:
 - Package management system
 - Security scanning pipeline
 - Monitoring dashboard
+- Kubernetes deployments with multiple ingress controllers
+- Application Gateway with advanced routing
+- Production HTTPS setup with Let's Encrypt
+- Multi-domain hosting with wildcard certificates
 
 ## Time Commitment
 
