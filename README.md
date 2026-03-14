@@ -168,7 +168,7 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - Security, RBAC, and cost optimization
   - **Complete hands-on labs via Portal**
 
-- **[Day 22: AKS with Traefik Ingress & Authentication](day-22-aks-traefik-auth.md)** ⭐ NEW
+- **[Day 22: AKS with Traefik Ingress & Authentication](day-22-aks-traefik-auth.md)** ⭐
   - Complete Flask REST API application
   - Docker containerization and ACR
   - AKS cluster deployment
@@ -178,6 +178,17 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - Load balancing across pods
   - Production-ready security pattern
   - **Real-world application with full code**
+
+### Week 5: Data & Database Services
+
+- **[Day 23: Azure Database Services - Complete Guide](day-23-azure-database.md)** ⭐ NEW
+  - Azure SQL Database (T-SQL, sample data, queries)
+  - Azure Database for PostgreSQL (JSON, constraints)
+  - Azure Database for MySQL (e-commerce schema)
+  - Azure Cosmos DB NoSQL (documents, partition keys)
+  - Azure Cache for Redis (caching, sessions, leaderboards)
+  - Security, networking, and cost optimization
+  - **Complete hands-on labs via Portal**
 
 ## How to Use This Guide
 
