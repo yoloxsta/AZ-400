@@ -181,7 +181,7 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
 
 ### Week 5: Data & Database Services
 
-- **[Day 23: Azure Database Services - Complete Guide](day-23-azure-database.md)** ⭐ NEW
+- **[Day 23: Azure Database Services - Complete Guide](day-23-azure-database.md)** ⭐
   - Azure SQL Database (T-SQL, sample data, queries)
   - Azure Database for PostgreSQL (JSON, constraints)
   - Azure Database for MySQL (e-commerce schema)
@@ -189,6 +189,16 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - Azure Cache for Redis (caching, sessions, leaderboards)
   - Security, networking, and cost optimization
   - **Complete hands-on labs via Portal**
+
+- **[Day 23 Part 2: Azure Database - Advanced Topics](day-23-part2-azure-database-advanced.md)** ⭐ NEW
+  - Azure SQL HA & DR (RPO/RTO explained)
+  - Active Geo-Replication (cross-region)
+  - Failover Groups (automatic DNS failover)
+  - SQL Managed Instance (lift-and-shift)
+  - SQL Server on Azure VMs (full IaaS)
+  - Cosmos DB Global Distribution & Consistency
+  - Azure Databricks (Spark, notebooks, Delta Lake)
+  - **Complete decision matrix for choosing services**
 
 ## How to Use This Guide
 
