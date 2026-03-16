@@ -190,7 +190,7 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - Security, networking, and cost optimization
   - **Complete hands-on labs via Portal**
 
-- **[Day 23 Part 2: Azure Database - Advanced Topics](day-23-part2-azure-database-advanced.md)** ⭐ NEW
+- **[Day 23 Part 2: Azure Database - Advanced Topics](day-23-part2-azure-database-advanced.md)** ⭐
   - Azure SQL HA & DR (RPO/RTO explained)
   - Active Geo-Replication (cross-region)
   - Failover Groups (automatic DNS failover)
@@ -199,6 +199,19 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - Cosmos DB Global Distribution & Consistency
   - Azure Databricks (Spark, notebooks, Delta Lake)
   - **Complete decision matrix for choosing services**
+
+### Bonus Labs
+
+- **[Day 24: AKS with HashiCorp Vault](day-24-aks-hashicorp-vault.md)** ⭐ NEW
+  - What is HashiCorp Vault and why use it
+  - Kubernetes Secrets vs Vault comparison
+  - Install Vault on AKS with Helm
+  - Store secrets (DB passwords, API keys)
+  - Vault Agent Injector sidecar pattern
+  - Deploy Flask app with Vault-injected secrets
+  - Secret rotation and auto-refresh
+  - Complete troubleshooting guide
+  - **Real-world production patterns**
 
 ## How to Use This Guide
 
@@ -222,6 +235,7 @@ Throughout this course, you'll build:
 - Multi-domain hosting with wildcard certificates
 - Complete Azure Storage solutions (Blob, File, Queue, Table, Disk)
 - Real-world REST API with authentication and load balancing
+- HashiCorp Vault secret management on AKS
 
 ## Time Commitment
 
