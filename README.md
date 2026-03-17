@@ -200,9 +200,22 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - Azure Databricks (Spark, notebooks, Delta Lake)
   - **Complete decision matrix for choosing services**
 
+### Week 6: Backup & Recovery
+
+- **[Day 25: Azure Backup - Complete Guide](day-25-azure-backup.md)** ⭐ NEW
+  - Recovery Services Vault and Backup Vault
+  - VM Backup (full VM protection + restore)
+  - Azure File Share Backup (snapshot-based)
+  - Azure Blob Backup (operational, point-in-time)
+  - Azure SQL Database Backup (auto + LTR)
+  - Managed Disk Backup (incremental snapshots)
+  - Backup Center (monitor everything)
+  - Backup policies, alerts, and reporting
+  - **Complete backup + restore labs via Portal**
+
 ### Bonus Labs
 
-- **[Day 24: AKS with HashiCorp Vault](day-24-aks-hashicorp-vault.md)** ⭐ NEW
+- **[Day 24: AKS with HashiCorp Vault](day-24-aks-hashicorp-vault.md)** ⭐
   - What is HashiCorp Vault and why use it
   - Kubernetes Secrets vs Vault comparison
   - Install Vault on AKS with Helm
@@ -236,6 +249,7 @@ Throughout this course, you'll build:
 - Complete Azure Storage solutions (Blob, File, Queue, Table, Disk)
 - Real-world REST API with authentication and load balancing
 - HashiCorp Vault secret management on AKS
+- Complete backup and disaster recovery solutions
 
 ## Time Commitment
 
