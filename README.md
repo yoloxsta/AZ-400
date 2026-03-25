@@ -200,18 +200,30 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - Azure Databricks (Spark, notebooks, Delta Lake)
   - **Complete decision matrix for choosing services**
 
-### Week 6: Backup & Recovery
+### Week 6: Backup, Recovery & Networking
 
-- **[Day 25: Azure Backup - Complete Guide](day-25-azure-backup.md)** ⭐ NEW
+- **[Day 25: Azure Backup - Complete Guide](day-25-azure-backup.md)** ⭐
   - Recovery Services Vault and Backup Vault
   - VM Backup (full VM protection + restore)
   - Azure File Share Backup (snapshot-based)
   - Azure Blob Backup (operational, point-in-time)
   - Azure SQL Database Backup (auto + LTR)
   - Managed Disk Backup (incremental snapshots)
+  - File Recovery (individual files from VM backup)
+  - Recovery Services Vault deep dive (soft delete, CRR, RBAC)
   - Backup Center (monitor everything)
-  - Backup policies, alerts, and reporting
   - **Complete backup + restore labs via Portal**
+
+- **[Day 26: Azure VPN - Point-to-Site & Site-to-Site](day-26-azure-vpn.md)** ⭐ NEW
+  - What is VPN and why use it
+  - Point-to-Site VPN (laptop → Azure via certificate auth)
+  - Site-to-Site VPN (office network → Azure via shared key)
+  - VNet-to-VNet VPN (Azure ↔ Azure)
+  - VPN Gateway setup and SKU selection
+  - Certificate generation (Windows + Linux/Mac)
+  - Complete connectivity testing (ping, SSH, HTTP via private IP)
+  - VNet Peering vs VPN comparison
+  - **Real-world production patterns and troubleshooting**
 
 ### Bonus Labs
 
@@ -250,6 +262,7 @@ Throughout this course, you'll build:
 - Real-world REST API with authentication and load balancing
 - HashiCorp Vault secret management on AKS
 - Complete backup and disaster recovery solutions
+- Secure VPN connections (Point-to-Site, Site-to-Site)
 
 ## Time Commitment
 
