@@ -225,6 +225,19 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - VNet Peering vs VPN comparison
   - **Real-world production patterns and troubleshooting**
 
+### Week 7: Infrastructure as Code
+
+- **[Day 27: Azure Templates (ARM & Bicep)](day-27-azure-templates.md)** ⭐ NEW
+  - What are ARM Templates and Bicep (and why they exist)
+  - Template structure (parameters, variables, resources, outputs)
+  - Deploy Storage, VNet with NSGs, complete VM from templates
+  - Bicep syntax (cleaner, auto-dependencies, modules)
+  - Parameter files for multi-environment deployments
+  - Export templates from existing resources
+  - Template Specs, Quickstart Templates, Portal deployment
+  - ARM functions cheat sheet
+  - **Complete hands-on labs with test/check/confirm**
+
 ### Bonus Labs
 
 - **[Day 24: AKS with HashiCorp Vault](day-24-aks-hashicorp-vault.md)** ⭐
@@ -263,6 +276,7 @@ Throughout this course, you'll build:
 - HashiCorp Vault secret management on AKS
 - Complete backup and disaster recovery solutions
 - Secure VPN connections (Point-to-Site, Site-to-Site)
+- Infrastructure as Code with ARM Templates and Bicep
 
 ## Time Commitment
 
