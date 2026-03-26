@@ -227,7 +227,7 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
 
 ### Week 7: Infrastructure as Code
 
-- **[Day 27: Azure Templates (ARM & Bicep)](day-27-azure-templates.md)** ⭐ NEW
+- **[Day 27: Azure Templates (ARM & Bicep)](day-27-azure-templates.md)** ⭐
   - What are ARM Templates and Bicep (and why they exist)
   - Template structure (parameters, variables, resources, outputs)
   - Deploy Storage, VNet with NSGs, complete VM from templates
@@ -237,6 +237,17 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - Template Specs, Quickstart Templates, Portal deployment
   - ARM functions cheat sheet
   - **Complete hands-on labs with test/check/confirm**
+
+- **[Day 28: Azure Policy - Governance & Compliance](day-28-azure-policy.md)** ⭐ NEW
+  - What is Azure Policy and how it works
+  - Policy vs RBAC (different things!)
+  - Policy effects (Deny, Audit, Modify, Append, DeployIfNotExists)
+  - Built-in policies (Allowed locations, Require tags)
+  - Custom policies (Restrict VM sizes)
+  - Policy initiatives (group policies together)
+  - Remediation (auto-fix existing resources)
+  - Compliance dashboard and reporting
+  - **Real-world governance patterns**
 
 ### Bonus Labs
 
@@ -277,6 +288,7 @@ Throughout this course, you'll build:
 - Complete backup and disaster recovery solutions
 - Secure VPN connections (Point-to-Site, Site-to-Site)
 - Infrastructure as Code with ARM Templates and Bicep
+- Azure Policy governance and compliance enforcement
 
 ## Time Commitment
 
