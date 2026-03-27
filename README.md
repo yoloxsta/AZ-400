@@ -238,7 +238,7 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - ARM functions cheat sheet
   - **Complete hands-on labs with test/check/confirm**
 
-- **[Day 28: Azure Policy - Governance & Compliance](day-28-azure-policy.md)** ⭐ NEW
+- **[Day 28: Azure Policy - Governance & Compliance](day-28-azure-policy.md)** ⭐
   - What is Azure Policy and how it works
   - Policy vs RBAC (different things!)
   - Policy effects (Deny, Audit, Modify, Append, DeployIfNotExists)
@@ -248,6 +248,16 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - Remediation (auto-fix existing resources)
   - Compliance dashboard and reporting
   - **Real-world governance patterns**
+
+- **[Day 29: Moving Resources Between Resource Groups](day-29-moving-resources.md)** ⭐ NEW
+  - What is resource moving and why do it
+  - Move Storage Account, VNet, VM with dependencies
+  - Cross-resource-group references (resources in different RGs)
+  - Move between subscriptions
+  - What CAN and CANNOT be moved
+  - Resource locks blocking moves
+  - Validation before moving (dry run)
+  - **Complete move checklist and troubleshooting**
 
 ### Bonus Labs
 
