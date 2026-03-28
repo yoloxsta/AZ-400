@@ -249,7 +249,7 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - Compliance dashboard and reporting
   - **Real-world governance patterns**
 
-- **[Day 29: Moving Resources Between Resource Groups](day-29-moving-resources.md)** ⭐ NEW
+- **[Day 29: Moving Resources Between Resource Groups](day-29-moving-resources.md)** ⭐
   - What is resource moving and why do it
   - Move Storage Account, VNet, VM with dependencies
   - Cross-resource-group references (resources in different RGs)
@@ -258,6 +258,18 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - Resource locks blocking moves
   - Validation before moving (dry run)
   - **Complete move checklist and troubleshooting**
+
+### Week 8: Advanced Networking
+
+- **[Day 30: VNet Peering & Gateway Transit](day-30-vnet-peering.md)** ⭐ NEW
+  - What is VNet Peering and why use it
+  - VNet Peering vs VPN Gateway comparison
+  - Same-region peering (full mesh, 3 VNets)
+  - Peering is NOT transitive (proven with lab)
+  - Global peering (cross-region, East US ↔ West Europe)
+  - Gateway Transit (Hub-and-Spoke topology)
+  - Share VPN Gateway across peered VNets
+  - **Complete connectivity testing with 4 VNets and 4 VMs**
 
 ### Bonus Labs
 
@@ -299,6 +311,7 @@ Throughout this course, you'll build:
 - Secure VPN connections (Point-to-Site, Site-to-Site)
 - Infrastructure as Code with ARM Templates and Bicep
 - Azure Policy governance and compliance enforcement
+- VNet Peering and Hub-and-Spoke network topologies
 
 ## Time Commitment
 
