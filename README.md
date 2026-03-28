@@ -259,9 +259,9 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - Validation before moving (dry run)
   - **Complete move checklist and troubleshooting**
 
-### Week 8: Advanced Networking
+### Week 8: Advanced Networking & Messaging
 
-- **[Day 30: VNet Peering & Gateway Transit](day-30-vnet-peering.md)** ⭐ NEW
+- **[Day 30: VNet Peering & Gateway Transit](day-30-vnet-peering.md)** ⭐
   - What is VNet Peering and why use it
   - VNet Peering vs VPN Gateway comparison
   - Same-region peering (full mesh, 3 VNets)
@@ -270,6 +270,16 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - Gateway Transit (Hub-and-Spoke topology)
   - Share VPN Gateway across peered VNets
   - **Complete connectivity testing with 4 VNets and 4 VMs**
+
+- **[Day 31: Azure Service Bus - Enterprise Messaging](day-31-service-bus.md)** ⭐ NEW
+  - What is Service Bus and why use it
+  - Queues (one sender → one receiver, Portal + Python)
+  - Topics & Subscriptions (one sender → many receivers)
+  - SQL Filters (route messages by properties)
+  - Dead-Letter Queue (handle failed messages)
+  - Scheduled messages and sessions
+  - Service Bus vs Storage Queue vs Event Grid
+  - **Complete hands-on labs with real code**
 
 ### Bonus Labs
 
@@ -312,6 +322,7 @@ Throughout this course, you'll build:
 - Infrastructure as Code with ARM Templates and Bicep
 - Azure Policy governance and compliance enforcement
 - VNet Peering and Hub-and-Spoke network topologies
+- Enterprise messaging with Azure Service Bus
 
 ## Time Commitment
 
