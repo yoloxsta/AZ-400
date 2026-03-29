@@ -292,6 +292,19 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - LB vs App Gateway vs Front Door comparison
   - **Every scenario tested with health probes and failover**
 
+### Week 9: Production Architecture
+
+- **[Day 33: AKS Internal API → Public Access for Mobile](day-33-aks-internal-to-public.md)** ⭐ NEW
+  - Deploy app on AKS with Internal AGIC (private IP)
+  - 5 methods to expose internal API publicly (comparison)
+  - Method 1: Azure Front Door + Private Link
+  - Method 2: Azure APIM (subscription keys, rate limiting)
+  - Method 3: Public App Gateway in front of Internal AGIC
+  - API Key authentication (X-API-Key header)
+  - Mobile team documentation (iOS, Android, React Native)
+  - Authentication method comparison (API Key, JWT, OAuth2, mTLS)
+  - **Real-world production security architecture**
+
 ### Bonus Labs
 
 - **[Day 24: AKS with HashiCorp Vault](day-24-aks-hashicorp-vault.md)** ⭐
