@@ -271,7 +271,7 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - Share VPN Gateway across peered VNets
   - **Complete connectivity testing with 4 VNets and 4 VMs**
 
-- **[Day 31: Azure Service Bus - Enterprise Messaging](day-31-service-bus.md)** ⭐ NEW
+- **[Day 31: Azure Service Bus - Enterprise Messaging](day-31-service-bus.md)** ⭐
   - What is Service Bus and why use it
   - Queues (one sender → one receiver, Portal + Python)
   - Topics & Subscriptions (one sender → many receivers)
@@ -280,6 +280,17 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - Scheduled messages and sessions
   - Service Bus vs Storage Queue vs Event Grid
   - **Complete hands-on labs with real code**
+
+- **[Day 32: Azure Load Balancer - Every Scenario](day-32-load-balancer.md)** ⭐ NEW
+  - What is Load Balancer and all components explained
+  - Same VNet, Same Subnet (standard setup)
+  - Same VNet, Different Subnets (cross-subnet)
+  - Same Region, Different VNets (IP-based + peering)
+  - Different Regions (Cross-Region Global LB)
+  - Internal Load Balancer (private IP only)
+  - Complete "Can I?" matrix for every scenario
+  - LB vs App Gateway vs Front Door comparison
+  - **Every scenario tested with health probes and failover**
 
 ### Bonus Labs
 
