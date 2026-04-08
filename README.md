@@ -294,7 +294,7 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
 
 ### Week 9: Production Architecture
 
-- **[Day 33: AKS Internal API → Public Access for Mobile](day-33-aks-internal-to-public.md)** ⭐ NEW
+- **[Day 33: AKS Internal API → Public Access for Mobile](day-33-aks-internal-to-public.md)** ⭐
   - Deploy app on AKS with Internal AGIC (private IP)
   - 5 methods to expose internal API publicly (comparison)
   - Method 1: Azure Front Door + Private Link
@@ -304,6 +304,18 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - Mobile team documentation (iOS, Android, React Native)
   - Authentication method comparison (API Key, JWT, OAuth2, mTLS)
   - **Real-world production security architecture**
+
+- **[Day 34: AI-Powered DevOps in Microsoft-Only Company](day-34-ai-devops-microsoft.md)** ⭐ NEW
+  - Complete Microsoft AI ecosystem map for DevOps
+  - GitHub Copilot (IDE AI assistant, autocomplete, chat)
+  - GitHub Copilot Agent Mode (agentic multi-file coding)
+  - Microsoft Copilot in Azure Portal (operations AI)
+  - Azure OpenAI Service (build custom AI tools)
+  - GitHub Copilot CLI (terminal AI)
+  - AI in Azure DevOps pipelines
+  - Copilot vs Kiro comparison
+  - How to propose AI to your company (ROI, security, compliance)
+  - **Every method compared with decision guide**
 
 ### Bonus Labs
 
