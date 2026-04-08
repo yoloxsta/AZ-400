@@ -330,6 +330,15 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - Complete troubleshooting guide
   - **Real-world production patterns**
 
+- **[Day 35: Azure Repos, Azure DevOps - Docker Build & ACR Deploy to VM](day-35-azure-repo-devops-docker-acr-vm.md)** ⭐
+  - Create simple Hello World Node.js app
+  - Containerize with Docker
+  - Push code to Azure Repos
+  - Azure DevOps pipeline to build and push to ACR
+  - Deploy container to Azure VM via SSH
+  - Complete CI/CD workflow
+  - **Step-by-step with full automation**
+
 ## How to Use This Guide
 
 1. **Follow sequentially**: Each day builds on previous knowledge
