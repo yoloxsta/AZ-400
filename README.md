@@ -305,7 +305,7 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - Authentication method comparison (API Key, JWT, OAuth2, mTLS)
   - **Real-world production security architecture**
 
-- **[Day 34: AI-Powered DevOps in Microsoft-Only Company](day-34-ai-devops-microsoft.md)** ⭐ NEW
+- **[Day 34: AI-Powered DevOps in Microsoft-Only Company](day-34-ai-devops-microsoft.md)** ⭐
   - Complete Microsoft AI ecosystem map for DevOps
   - GitHub Copilot (IDE AI assistant, autocomplete, chat)
   - GitHub Copilot Agent Mode (agentic multi-file coding)
@@ -316,6 +316,17 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - Copilot vs Kiro comparison
   - How to propose AI to your company (ROI, security, compliance)
   - **Every method compared with decision guide**
+
+- **[Day 35: Azure Repos → Docker → ACR → VM (CI/CD Pipeline)](day-35-azure-repo-devops-docker-acr-vm.md)** ⭐ NEW
+  - Create Azure DevOps Organization & Project (step by step)
+  - Create Azure Repos and push code
+  - Create Agent Pool & Self-Hosted Runner (full setup)
+  - Microsoft-Hosted vs Self-Hosted agents explained
+  - Create ACR, Deploy VM, install Docker
+  - Service connections (Docker Registry, SSH)
+  - Complete 2-stage pipeline (Build+Push → Deploy)
+  - Auto-deploy on git push
+  - **Every step with test, check, and confirm**
 
 ### Bonus Labs
 
