@@ -1,10 +1,10 @@
-# Azure DevOps - 10 Day Learning Path
+# Azure DevOps - 34 Day Learning Path
 
 A comprehensive, hands-on guide to learning Azure DevOps from scratch. Each day includes theory (what, why, how) and practical labs.
 
 ## Overview
 
-This learning path takes you from Azure DevOps basics to advanced CI/CD patterns in 10 days. Each day builds on the previous, with real-world labs and best practices.
+This learning path takes you from Azure DevOps basics to advanced CI/CD patterns in 34 days. Each day builds on the previous, with real-world labs and best practices.
 
 ## Prerequisites
 
