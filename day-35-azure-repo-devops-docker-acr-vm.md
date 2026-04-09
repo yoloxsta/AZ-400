@@ -1148,3 +1148,110 @@ sudo ./svc.sh status
 ---
 
 **🎉 Congratulations!** You've completed Day 35 with a full CI/CD pipeline: Azure Repos → Docker Build → ACR Push → VM Deploy, with both Microsoft-hosted and self-hosted agent options!
+
+###
+```
+✅ Step-by-step: Create Service Principal (from Azure Portal UI)
+1. Go to Azure Portal
+
+Open:
+👉 https://portal.azure.com
+
+2. Open Microsoft Entra ID (Azure AD)
+Search: “Microsoft Entra ID”
+Click it
+3. App registrations
+Click App registrations
+Click + New registration
+4. Create App
+
+Fill:
+
+Name → azdo-devops-lab-sp (or anything)
+Supported account types → Single tenant (default)
+Click Register
+5. Copy important values
+
+After created, copy these:
+
+Application (client) ID
+Directory (tenant) ID
+
+👉 You will need these in Azure DevOps
+
+6. Create Client Secret
+
+Go to:
+
+Certificates & secrets
+Click + New client secret
+
+Fill:
+
+Description → devops-secret
+Expiry → 6 months / 12 months
+
+Click Add
+
+⚠️ IMPORTANT:
+
+Copy Value immediately (you can't see it again)
+7. Give permission (VERY IMPORTANT)
+
+Now assign permission to ACR:
+
+Go to:
+Subscriptions
+Select your subscription
+Click Access control (IAM)
+Add role:
+Click + Add → Add role assignment
+
+Select:
+
+Role → AcrPush (for push)
+OR Contributor (for full access, easier for lab)
+Assign to:
+Select: User, group, or service principal
+Click Select members
+Search your app name → azdo-devops-lab-sp
+Select it
+
+Click Review + assign
+
+✅ Now you have:
+Item	Example
+Client ID	xxxxxxxx
+Tenant ID	xxxxxxxx
+Client Secret	xxxxxxxx
+✅ Next: Use in Azure DevOps
+
+Go to:
+
+👉 Project Settings → Service connections → New
+
+Choose:
+
+Azure Resource Manager
+Authentication → Service principal (manual)
+
+Fill:
+
+Subscription ID
+Subscription name
+Tenant ID
+Client ID
+Client Secret
+⚠️ Common mistakes (you had these before)
+❌ Missing permission
+
+→ fix: assign AcrPush role
+
+❌ Expired secret
+
+→ fix: create new secret
+
+❌ Wrong service connection type
+Docker task needs Docker Registry
+AzureCLI task uses Azure Resource Manager
+```
