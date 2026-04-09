@@ -216,4 +216,56 @@ stages:
         ArtifactName: 'deployment-package'
         publishLocation: 'Container'
 ```
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  name: 'azureagent'
+
+variables:
+  imageName: 'helloworldapp'
+  acrName: 'soetintaung'
+  tag: '$(Build.BuildId)'
+  azureServiceConnection: 'azdo-devops-lab-sp'
+
+stages:
+- stage: BuildAndPush
+  displayName: Build and Push Docker Image
+  jobs:
+  - job: BuildPush
+    displayName: Build & Push
+    steps:
+    - task: AzureCLI@2
+      displayName: Build and Push using AzureRM Service Connection
+      inputs:
+        azureSubscription: $(azureServiceConnection)
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          echo "Logging in to ACR..."
+          az acr login --name $(acrName)
+          echo "Building Docker image..."
+          docker build -t $(acrName).azurecr.io/$(imageName):$(tag) helloworld/
+          echo "Pushing Docker image..."
+          docker push $(acrName).azurecr.io/$(imageName):$(tag)
+- stage: Deploy
+  displayName: Deploy Docker Container
+  dependsOn: BuildAndPush
+  jobs:
+  - job: Deploy
+    displayName: Deploy Container
+    steps:
+    - script: |
+        echo "Stopping old container if it exists..."
+        if [ "$(docker ps -q -f name=helloworld)" ]; then
+          docker stop helloworld
+          docker rm helloworld
+          sleep 2
+        fi
+
+        echo "Running new container..."
+        docker run -d -p 8080:80 --name helloworld $(acrName).azurecr.io/helloworldapp:$(tag)
+      displayName: 'Deploy Docker Container'
 ###
