@@ -270,5 +270,6 @@ stages:
         echo "Running new container..."
         docker run -d -p 8080:80 --name helloworld $(acrName).azurecr.io/helloworldapp:$(tag)
       displayName: 'Deploy Docker Container'
-###
+
 ```
+###
