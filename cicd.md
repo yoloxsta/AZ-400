@@ -215,7 +215,9 @@ stages:
         PathtoPublish: '$(Build.ArtifactStagingDirectory)'
         ArtifactName: 'deployment-package'
         publishLocation: 'Container'
+```
 ###
+```
 trigger:
   branches:
     include:
