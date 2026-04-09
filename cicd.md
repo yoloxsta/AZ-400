@@ -215,7 +215,7 @@ stages:
         PathtoPublish: '$(Build.ArtifactStagingDirectory)'
         ArtifactName: 'deployment-package'
         publishLocation: 'Container'
-```
+###
 trigger:
   branches:
     include:
@@ -269,3 +269,4 @@ stages:
         docker run -d -p 8080:80 --name helloworld $(acrName).azurecr.io/helloworldapp:$(tag)
       displayName: 'Deploy Docker Container'
 ###
+```
