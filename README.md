@@ -317,7 +317,7 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - How to propose AI to your company (ROI, security, compliance)
   - **Every method compared with decision guide**
 
-- **[Day 35: Azure Repos → Docker → ACR → VM (CI/CD Pipeline)](day-35-azure-repo-devops-docker-acr-vm.md)** ⭐ NEW
+- **[Day 35: Azure Repos → Docker → ACR → VM (CI/CD Pipeline)](day-35-azure-repo-devops-docker-acr-vm.md)** ⭐
   - Create Azure DevOps Organization & Project (step by step)
   - Create Azure Repos and push code
   - Create Agent Pool & Self-Hosted Runner (full setup)
@@ -327,6 +327,19 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - Complete 2-stage pipeline (Build+Push → Deploy)
   - Auto-deploy on git push
   - **Every step with test, check, and confirm**
+
+### Week 10: Security & Networking Deep Dive
+
+- **[Day 36: Azure Endpoints - Private & Service Endpoints](day-36-endpoints.md)** ⭐ NEW
+  - What is an Endpoint (simple explanation)
+  - Service Endpoint vs Private Endpoint (comparison)
+  - Service Endpoint lab (Storage, free, Azure backbone)
+  - Private Endpoint lab (Storage, private IP in VNet)
+  - Private Endpoint lab (Azure SQL, private access)
+  - Private DNS Zones (how name resolution works)
+  - Full lockdown (disable public access completely)
+  - When to use which (decision guide)
+  - **Complete labs with DNS verification and access testing**
 
 ### Bonus Labs
 
