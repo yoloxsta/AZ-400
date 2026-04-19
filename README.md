@@ -341,7 +341,7 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - When to use which (decision guide)
   - **Complete labs with DNS verification and access testing**
 
-- **[Day 37: Azure Monitoring & Alerts](day-37-monitoring-alerts.md)** ⭐ NEW
+- **[Day 37: Azure Monitoring & Alerts](day-37-monitoring-alerts.md)** ⭐
   - What is Azure Monitor (metrics, logs, traces)
   - Metrics Explorer (CPU, memory, disk, network charts)
   - Action Groups (email, SMS, webhook notifications)
@@ -352,6 +352,16 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - Log-based alerts (KQL query alerts)
   - Custom monitoring dashboard
   - **Complete alert lifecycle: fire → notify → resolve**
+
+- **[Day 38: 3 Apps on 1 VM + Nginx + Application Gateway](day-38-multi-app-single-vm-appgw.md)** ⭐ NEW
+  - 3 Docker containers (web1, web2, web3) on single VM
+  - Nginx reverse proxy (route by domain name)
+  - Application Gateway with host-based routing (multi-site)
+  - DNS: web1/web2/web3.maharuat.com → same AppGW IP
+  - Docker Compose for container management
+  - Container failure testing (stop one, others still work)
+  - 3 DNS options (Azure DNS, external, hosts file)
+  - **Complete end-to-end: Browser → DNS → AppGW → Nginx → Docker**
 
 ### Bonus Labs
 
