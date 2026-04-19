@@ -330,7 +330,7 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
 
 ### Week 10: Security & Networking Deep Dive
 
-- **[Day 36: Azure Endpoints - Private & Service Endpoints](day-36-endpoints.md)** ⭐ NEW
+- **[Day 36: Azure Endpoints - Private & Service Endpoints](day-36-endpoints.md)** ⭐
   - What is an Endpoint (simple explanation)
   - Service Endpoint vs Private Endpoint (comparison)
   - Service Endpoint lab (Storage, free, Azure backbone)
@@ -340,6 +340,18 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - Full lockdown (disable public access completely)
   - When to use which (decision guide)
   - **Complete labs with DNS verification and access testing**
+
+- **[Day 37: Azure Monitoring & Alerts](day-37-monitoring-alerts.md)** ⭐ NEW
+  - What is Azure Monitor (metrics, logs, traces)
+  - Metrics Explorer (CPU, memory, disk, network charts)
+  - Action Groups (email, SMS, webhook notifications)
+  - Metric Alerts (CPU > 80% triggers email)
+  - Stress test to trigger alert and verify notification
+  - Log Analytics Workspace & Diagnostic Settings
+  - KQL queries (Heartbeat, CPU, Memory, Disk)
+  - Log-based alerts (KQL query alerts)
+  - Custom monitoring dashboard
+  - **Complete alert lifecycle: fire → notify → resolve**
 
 ### Bonus Labs
 
