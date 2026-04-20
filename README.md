@@ -365,7 +365,7 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
 
 ### Week 11: Streaming & Events
 
-- **[Day 39: Kafka on Azure (Event Hubs)](day-39-kafka-azure.md)** ⭐ NEW
+- **[Day 39: Kafka on Azure (Event Hubs)](day-39-kafka-azure.md)** ⭐
   - What is Kafka and all concepts explained
   - Azure Event Hubs with Kafka protocol (managed Kafka)
   - Kafka vs Service Bus vs Event Grid comparison
@@ -375,6 +375,16 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - Partitions (parallel processing, key-based ordering)
   - Kafka ↔ Event Hubs term mapping
   - **Complete producer/consumer labs with real code**
+
+- **[Day 39 Part 2: Self-Managed Kafka on VMs](day-39-part2-kafka-self-managed.md)** ⭐ NEW
+  - Install Java, ZooKeeper, and Kafka on Azure VM
+  - Kafka CLI tools (topics, producer, consumer, groups)
+  - Produce and consume with Python
+  - 3-broker cluster setup (3 VMs)
+  - Replicated topics (replication-factor 2)
+  - Failover testing (kill broker, verify no data loss)
+  - Broker recovery (restart, auto-resync)
+  - **Complete cluster with replication and failover**
 
 ### Bonus Labs
 
