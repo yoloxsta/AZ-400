@@ -353,7 +353,7 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - Custom monitoring dashboard
   - **Complete alert lifecycle: fire → notify → resolve**
 
-- **[Day 38: 3 Apps on 1 VM + Nginx + Application Gateway](day-38-multi-app-single-vm-appgw.md)** ⭐ NEW
+- **[Day 38: 3 Apps on 1 VM + Nginx + Application Gateway](day-38-multi-app-single-vm-appgw.md)** ⭐
   - 3 Docker containers (web1, web2, web3) on single VM
   - Nginx reverse proxy (route by domain name)
   - Application Gateway with host-based routing (multi-site)
@@ -362,6 +362,19 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - Container failure testing (stop one, others still work)
   - 3 DNS options (Azure DNS, external, hosts file)
   - **Complete end-to-end: Browser → DNS → AppGW → Nginx → Docker**
+
+### Week 11: Streaming & Events
+
+- **[Day 39: Kafka on Azure (Event Hubs)](day-39-kafka-azure.md)** ⭐ NEW
+  - What is Kafka and all concepts explained
+  - Azure Event Hubs with Kafka protocol (managed Kafka)
+  - Kafka vs Service Bus vs Event Grid comparison
+  - Produce messages with Python (confluent-kafka)
+  - Consume messages with Python (real-time streaming)
+  - Consumer Groups (multiple independent readers)
+  - Partitions (parallel processing, key-based ordering)
+  - Kafka ↔ Event Hubs term mapping
+  - **Complete producer/consumer labs with real code**
 
 ### Bonus Labs
 
