@@ -201,7 +201,9 @@ kv-day40-aks → Secrets
 1. Search "Kubernetes services" in Azure Portal → "+ Create" → "Create Kubernetes cluster"
 2. Fill in:
 
-   Basics:
+   ═══════════════════════════════════════════════════
+   BASICS TAB:
+   ═══════════════════════════════════════════════════
    - Subscription: Your subscription
    - Resource group: rg-day40-aks-kv
    - Cluster preset configuration: Dev/Test
@@ -211,39 +213,91 @@ kv-day40-aks → Secrets
    - Node size: Standard_B2s
    - Node count: 2
 
-   Authentication:
+   ═══════════════════════════════════════════════════
+   AUTHENTICATION TAB:
+   ═══════════════════════════════════════════════════
    - Authentication method: Local accounts with Kubernetes RBAC
+   (leave defaults)
 
-   Networking:
-   - Network configuration: Azure CNI (or leave default)
+   ═══════════════════════════════════════════════════
+   NETWORKING TAB:
+   ═══════════════════════════════════════════════════
+   - Network configuration: (leave default Azure CNI or Kubenet)
+   (leave defaults)
 
-   Integrations:
-   - Azure Key Vault Secrets Provider: ✅ Enabled ← IMPORTANT!
-     This installs the CSI Driver automatically.
+   ═══════════════════════════════════════════════════
+   INTEGRATIONS TAB:  ← IMPORTANT!
+   ═══════════════════════════════════════════════════
+   
+   Azure Container Registry:
+   - (Skip for now, not needed for this lab)
+   
+   Service mesh - Istio:
+   - Enable Istio: ❌ No (not needed)
+   
+   Azure Policy:
+   - Azure Policy: ❌ No (not needed for this lab)
 
-   Advanced:
-   - OIDC Issuer: ✅ Enabled ← IMPORTANT!
-   - Workload Identity: ✅ Enabled ← IMPORTANT!
+   ═══════════════════════════════════════════════════
+   SECURITY TAB:  ← VERY IMPORTANT!
+   ═══════════════════════════════════════════════════
+   
+   Microsoft Defender for Cloud:
+   - (leave default)
+   
+   OpenID Connect (OIDC):
+   - Enable OIDC: ✅ YES  ← MUST ENABLE!
+     (Required for Workload Identity)
+   
+   Workload Identity:
+   - Enable Workload Identity: ✅ YES  ← MUST ENABLE!
+     (Allows pods to authenticate to Azure services)
+     (Note: Requires OIDC to be enabled first)
+   
+   Image Cleaner:
+   - Enable Image Cleaner: ❌ No (optional)
+   
+   Azure Key Vault:
+   - Enable secret store CSI driver: ✅ YES  ← MUST ENABLE!
+     (This installs the CSI Driver that mounts Key Vault secrets)
+   
+   Container Network Security (ACNS):
+   - Enable: ❌ No (not needed)
 
 3. Click "Review + create" → "Create"
 ```
 
 **⏱️ Wait**: 5-10 minutes
 
-**What these settings do:**
 ```
-Azure Key Vault Secrets Provider: ✅
-  → Installs Secrets Store CSI Driver on the cluster
-  → Installs Azure Key Vault provider
-  → This is what mounts Key Vault secrets into pods
-
-OIDC Issuer: ✅
-  → Enables OpenID Connect issuer for the cluster
-  → Required for Workload Identity
-
-Workload Identity: ✅
-  → Allows pods to authenticate to Azure services
-  → No credentials needed in pods!
+┌──────────────────────────────────────────────────────────────┐
+│  WHAT WE ENABLED AND WHY                                      │
+│                                                               │
+│  SECURITY TAB:                                               │
+│                                                               │
+│  ✅ Enable OIDC                                              │
+│     Enables OpenID Connect issuer for the cluster.           │
+│     This lets Azure verify "this pod is really from AKS".    │
+│     Required for Workload Identity to work.                  │
+│                                                               │
+│  ✅ Enable Workload Identity                                 │
+│     Allows pods to authenticate to Azure services            │
+│     (like Key Vault) using a Kubernetes Service Account.     │
+│     No passwords or credentials stored in pods!              │
+│     Requires OIDC to be enabled.                             │
+│                                                               │
+│  ✅ Enable secret store CSI driver (Azure Key Vault)         │
+│     Installs the Secrets Store CSI Driver on the cluster.    │
+│     Installs the Azure Key Vault provider.                   │
+│     This is what mounts Key Vault secrets as files in pods.  │
+│                                                               │
+│  INTEGRATIONS TAB:                                           │
+│  (We skipped everything here for this lab)                   │
+│  In production you might also enable:                        │
+│  ├─ Azure Container Registry (for private images)            │
+│  ├─ Azure Policy (governance)                                │
+│  └─ Istio (service mesh)                                     │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 ### Step 2: Connect to AKS
