@@ -401,7 +401,7 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - RBAC roles for Key Vault
   - **Complete labs with 5 access methods**
 
-- **[Day 40 Part 2: Key Vault + AKS (CSI Driver)](day-40-part2-keyvault-aks.md)** ⭐ NEW
+- **[Day 40 Part 2: Key Vault + AKS (CSI Driver)](day-40-part2-keyvault-aks.md)** ⭐
   - AKS with Secrets Store CSI Driver
   - Workload Identity (pod authenticates to Key Vault)
   - SecretProviderClass (define which secrets to fetch)
@@ -409,6 +409,15 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - Auto-refresh when secrets change in Key Vault
   - Zero secrets in YAML, code, or environment variables
   - **Complete end-to-end demo with verification**
+
+- **[Day 40 Part 3: Key Vault with Private Endpoint](day-40-part3-keyvault-private-endpoint.md)** ⭐ NEW
+  - Why Private Endpoint for Key Vault (production security)
+  - Create Private Endpoint via Portal (step by step)
+  - Private DNS Zone (privatelink.vaultcore.azure.net)
+  - Disable public access completely
+  - Access from VM via private IP (10.0.2.x)
+  - AKS in same VNet accessing Key Vault privately
+  - **Full lockdown: internet blocked, VNet only**
 
 ### Bonus Labs
 
