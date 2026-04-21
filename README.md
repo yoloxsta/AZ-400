@@ -388,7 +388,7 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
 
 ### Week 12: Security & Secrets
 
-- **[Day 40: Azure Key Vault - Secrets, Keys & Certificates](day-40-azure-key-vault.md)** ⭐ NEW
+- **[Day 40: Azure Key Vault - Secrets, Keys & Certificates](day-40-azure-key-vault.md)** ⭐
   - What is Key Vault and why use it (vs secrets in code)
   - Store and retrieve secrets (Portal + CLI)
   - Secret versions and rotation
@@ -400,6 +400,15 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - Soft delete and recovery
   - RBAC roles for Key Vault
   - **Complete labs with 5 access methods**
+
+- **[Day 40 Part 2: Key Vault + AKS (CSI Driver)](day-40-part2-keyvault-aks.md)** ⭐ NEW
+  - AKS with Secrets Store CSI Driver
+  - Workload Identity (pod authenticates to Key Vault)
+  - SecretProviderClass (define which secrets to fetch)
+  - Deploy app that reads secrets from /mnt/secrets/
+  - Auto-refresh when secrets change in Key Vault
+  - Zero secrets in YAML, code, or environment variables
+  - **Complete end-to-end demo with verification**
 
 ### Bonus Labs
 
