@@ -78,73 +78,115 @@ With CSI Driver:
 
 ### Step 1: Create Resource Group
 
-```bash
-az group create --name rg-day40-aks-kv --location eastus
+```
+1. Azure Portal → Search "Resource groups" → "+ Create"
+2. Fill in:
+   - Subscription: Your subscription
+   - Resource group: rg-day40-aks-kv
+   - Region: East US
+3. Click "Review + create" → "Create"
 ```
 
 ### Step 2: Create Key Vault
 
-```bash
-az keyvault create \
-  --name kv-day40-aks \
-  --resource-group rg-day40-aks-kv \
-  --location eastus \
-  --enable-rbac-authorization true
+```
+1. Search "Key vaults" in Azure Portal → "+ Create"
+2. Fill in:
+
+   Basics:
+   - Subscription: Your subscription
+   - Resource group: rg-day40-aks-kv
+   - Key vault name: kv-day40-aks (must be globally unique)
+   - Region: East US
+   - Pricing tier: Standard
+
+   Access configuration:
+   - Permission model: Azure role-based access control (RBAC)
+
+   Networking:
+   - Public access: All networks (for lab)
+
+3. Click "Review + create" → "Create"
 ```
 
 **⏱️ Wait**: 1-2 minutes
 
 ### Step 3: Assign Yourself Admin Access
 
-```bash
-# Get your user object ID
-USER_ID=$(az ad signed-in-user show --query id -o tsv)
+```
+1. Go to kv-day40-aks
+2. Left menu → "Access control (IAM)"
+3. Click "+ Add" → "Add role assignment"
+4. Role: Search "Key Vault Administrator" → Select it → Next
+5. Members: Click "+ Select members" → Select your user → Select
+6. Click "Review + assign" → "Review + assign"
 
-# Get Key Vault resource ID
-KV_ID=$(az keyvault show --name kv-day40-aks --query id -o tsv)
-
-# Assign Key Vault Administrator role
-az role assignment create \
-  --role "Key Vault Administrator" \
-  --assignee $USER_ID \
-  --scope $KV_ID
+⏱️ Wait: 1-2 minutes for role to propagate
 ```
 
-### Step 4: Store Secrets
+### Step 4: Store Secrets via Portal
 
-```bash
-# Store application secrets
-az keyvault secret set --vault-name kv-day40-aks --name db-host --value "mydb.database.azure.com"
-az keyvault secret set --vault-name kv-day40-aks --name db-user --value "appadmin"
-az keyvault secret set --vault-name kv-day40-aks --name db-password --value "SuperSecret@2026"
-az keyvault secret set --vault-name kv-day40-aks --name api-key --value "sk_live_abc123xyz789"
-az keyvault secret set --vault-name kv-day40-aks --name app-env --value "production"
+```
+1. Go to kv-day40-aks → Left menu → "Secrets"
+2. Click "+ Generate/Import" for each secret:
+
+   Secret 1:
+   - Name: db-host
+   - Secret value: mydb.database.azure.com
+   - Click "Create"
+
+   Secret 2:
+   - Name: db-user
+   - Secret value: appadmin
+   - Click "Create"
+
+   Secret 3:
+   - Name: db-password
+   - Secret value: SuperSecret@2026
+   - Click "Create"
+
+   Secret 4:
+   - Name: api-key
+   - Secret value: sk_live_abc123xyz789
+   - Click "Create"
+
+   Secret 5:
+   - Name: app-env
+   - Secret value: production
+   - Click "Create"
 ```
 
 ### Step 5: Verify Secrets
 
-```bash
-# List secrets
-az keyvault secret list --vault-name kv-day40-aks --query "[].name" -o tsv
+```
+1. Go to kv-day40-aks → Secrets
+2. Verify all 5 secrets listed:
+   ✅ api-key
+   ✅ app-env
+   ✅ db-host
+   ✅ db-password
+   ✅ db-user
 
-# Output:
-# api-key
-# app-env
-# db-host
-# db-password
-# db-user
-
-# Read a secret
-az keyvault secret show --vault-name kv-day40-aks --name db-password --query value -o tsv
-# SuperSecret@2026 ✅
+3. Click "db-password" → Click current version → "Show Secret Value"
+   ✅ SuperSecret@2026
 ```
 
 ### Step 6: Test, Check, and Confirm
 
+**Test 1: Key Vault Created**
+
 ```
-az keyvault secret list --vault-name kv-day40-aks
-  ✅ 5 secrets stored
-  ✅ db-host, db-user, db-password, api-key, app-env
+Key vaults → kv-day40-aks
+  ✅ Status: Active
+  ✅ Permission model: RBAC
+```
+
+**Test 2: All Secrets Stored**
+
+```
+kv-day40-aks → Secrets
+  ✅ 5 secrets listed
+  ✅ Each secret value readable
 ```
 
 **✅ Result**: Key Vault with secrets ready!
@@ -153,40 +195,61 @@ az keyvault secret list --vault-name kv-day40-aks
 
 ## Lab 2: Create AKS with CSI Driver
 
-### Step 1: Create AKS Cluster
+### Step 1: Create AKS Cluster via Portal
 
-```bash
-az aks create \
-  --resource-group rg-day40-aks-kv \
-  --name aks-day40-kv \
-  --node-count 2 \
-  --node-vm-size Standard_B2s \
-  --enable-oidc-issuer \
-  --enable-workload-identity \
-  --enable-addons azure-keyvault-secrets-provider \
-  --generate-ssh-keys
 ```
+1. Search "Kubernetes services" in Azure Portal → "+ Create" → "Create Kubernetes cluster"
+2. Fill in:
 
-**Key flags explained:**
-```
---enable-oidc-issuer:
-  Enables OpenID Connect issuer for the cluster.
-  Required for Workload Identity.
+   Basics:
+   - Subscription: Your subscription
+   - Resource group: rg-day40-aks-kv
+   - Cluster preset configuration: Dev/Test
+   - Kubernetes cluster name: aks-day40-kv
+   - Region: East US
+   - Kubernetes version: (leave default, latest stable)
+   - Node size: Standard_B2s
+   - Node count: 2
 
---enable-workload-identity:
-  Enables Workload Identity feature.
-  Allows pods to authenticate to Azure services.
+   Authentication:
+   - Authentication method: Local accounts with Kubernetes RBAC
 
---enable-addons azure-keyvault-secrets-provider:
-  Installs the Secrets Store CSI Driver.
-  This is what mounts Key Vault secrets into pods.
+   Networking:
+   - Network configuration: Azure CNI (or leave default)
+
+   Integrations:
+   - Azure Key Vault Secrets Provider: ✅ Enabled ← IMPORTANT!
+     This installs the CSI Driver automatically.
+
+   Advanced:
+   - OIDC Issuer: ✅ Enabled ← IMPORTANT!
+   - Workload Identity: ✅ Enabled ← IMPORTANT!
+
+3. Click "Review + create" → "Create"
 ```
 
 **⏱️ Wait**: 5-10 minutes
 
+**What these settings do:**
+```
+Azure Key Vault Secrets Provider: ✅
+  → Installs Secrets Store CSI Driver on the cluster
+  → Installs Azure Key Vault provider
+  → This is what mounts Key Vault secrets into pods
+
+OIDC Issuer: ✅
+  → Enables OpenID Connect issuer for the cluster
+  → Required for Workload Identity
+
+Workload Identity: ✅
+  → Allows pods to authenticate to Azure services
+  → No credentials needed in pods!
+```
+
 ### Step 2: Connect to AKS
 
 ```bash
+# Get credentials (this is CLI, needed for kubectl)
 az aks get-credentials --resource-group rg-day40-aks-kv --name aks-day40-kv
 
 kubectl get nodes
@@ -266,51 +329,85 @@ New way (Workload Identity):
 
 ### Step 1: Get Cluster Info
 
+```
+You can find these values in the Portal:
+
+1. OIDC Issuer URL:
+   Go to aks-day40-kv → Overview → Properties
+   Or: aks-day40-kv → Left menu → "Security" → "OIDC Issuer"
+   Copy the OIDC Issuer URL
+
+2. Tenant ID:
+   Go to Azure Active Directory → Overview → Tenant ID
+   Or: Any resource → Properties → Directory ID
+
+3. Identity Client ID:
+   Go to id-kv-reader (Managed Identity) → Overview → Client ID
+
+Then set them in your terminal for the next steps:
+```
+
 ```bash
-# Get OIDC issuer URL
+# Set these values (replace with YOUR values from Portal)
+export AKS_OIDC_ISSUER="https://eastus.oic.prod-aks.azure.com/xxxxx/"
+export TENANT_ID="your-tenant-id"
+export IDENTITY_CLIENT_ID="your-identity-client-id"
+```
+
+### Step 2: Create User-Assigned Managed Identity via Portal
+
+```
+1. Search "Managed Identities" in Azure Portal → "+ Create"
+2. Fill in:
+   - Subscription: Your subscription
+   - Resource group: rg-day40-aks-kv
+   - Region: East US
+   - Name: id-kv-reader
+3. Click "Review + create" → "Create"
+
+4. After creation, go to id-kv-reader → Overview
+5. Copy the "Client ID" → Save it! You'll need it.
+   Example: 12345678-abcd-efgh-ijkl-123456789012
+```
+
+### Step 3: Grant Identity Access to Key Vault via Portal
+
+```
+1. Go to kv-day40-aks → Access control (IAM)
+2. Click "+ Add" → "Add role assignment"
+3. Role: Search "Key Vault Secrets User" → Select it → Next
+4. Members:
+   - Assign access to: Managed identity
+   - Click "+ Select members"
+   - Managed identity type: User-assigned managed identity
+   - Select: id-kv-reader
+   - Click "Select"
+5. Click "Review + assign" → "Review + assign"
+
+✅ Now id-kv-reader can READ secrets from Key Vault
+```
+
+**Then get the values needed for next steps (CLI needed for these):**
+
+```bash
+# Get OIDC issuer URL (from AKS)
 export AKS_OIDC_ISSUER=$(az aks show \
   --resource-group rg-day40-aks-kv \
   --name aks-day40-kv \
   --query "oidcIssuerProfile.issuerUrl" -o tsv)
 
-echo "OIDC Issuer: $AKS_OIDC_ISSUER"
-
-# Get Key Vault tenant ID
+# Get Tenant ID
 export TENANT_ID=$(az account show --query tenantId -o tsv)
-echo "Tenant ID: $TENANT_ID"
-```
 
-### Step 2: Create User-Assigned Managed Identity
-
-```bash
-# Create managed identity
-az identity create \
-  --name id-kv-reader \
-  --resource-group rg-day40-aks-kv \
-  --location eastus
-
-# Get identity client ID
+# Get Identity Client ID (you copied this from Portal, or use CLI)
 export IDENTITY_CLIENT_ID=$(az identity show \
   --name id-kv-reader \
   --resource-group rg-day40-aks-kv \
   --query clientId -o tsv)
 
+echo "OIDC Issuer: $AKS_OIDC_ISSUER"
+echo "Tenant ID: $TENANT_ID"
 echo "Identity Client ID: $IDENTITY_CLIENT_ID"
-```
-
-### Step 3: Grant Identity Access to Key Vault
-
-```bash
-# Get Key Vault resource ID
-KV_ID=$(az keyvault show --name kv-day40-aks --query id -o tsv)
-
-# Assign "Key Vault Secrets User" role to the managed identity
-az role assignment create \
-  --role "Key Vault Secrets User" \
-  --assignee $IDENTITY_CLIENT_ID \
-  --scope $KV_ID
-
-# ✅ Now this identity can READ secrets from Key Vault
 ```
 
 ### Step 4: Create Kubernetes Service Account
@@ -358,16 +455,18 @@ What this does:
 
 **Test 1: Managed Identity Created**
 
-```bash
-az identity show --name id-kv-reader --resource-group rg-day40-aks-kv --query clientId -o tsv
-  ✅ Client ID returned
+```
+1. Search "Managed Identities" → id-kv-reader
+   ✅ Status: Active
+   ✅ Client ID shown
+   ✅ Resource group: rg-day40-aks-kv
 ```
 
 **Test 2: Role Assignment**
 
-```bash
-az role assignment list --scope $KV_ID --query "[?principalName=='id-kv-reader'].roleDefinitionName" -o tsv
-  ✅ Key Vault Secrets User
+```
+1. kv-day40-aks → Access control (IAM) → Role assignments
+   ✅ id-kv-reader: Key Vault Secrets User
 ```
 
 **Test 3: Service Account**
@@ -782,15 +881,20 @@ Secrets:
 
 ## Cleanup
 
-```bash
-# Delete AKS cluster
-az aks delete --resource-group rg-day40-aks-kv --name aks-day40-kv --yes --no-wait
+```
+1. Delete AKS Cluster:
+   - Search "Kubernetes services" → aks-day40-kv → Delete
+   - Type cluster name to confirm → Delete
 
-# Delete resource group (deletes everything)
-az group delete --name rg-day40-aks-kv --yes --no-wait
+2. Delete Resource Group (deletes everything):
+   - Resource groups → rg-day40-aks-kv → Delete
+   - Type name to confirm → Delete
 
-# Purge Key Vault (after soft delete period, or immediately)
-az keyvault purge --name kv-day40-aks 2>/dev/null || true
+3. Purge Key Vault (after soft delete):
+   - Search "Key vaults" → "Manage deleted vaults"
+   - Find kv-day40-aks → "Purge"
+   
+   Or wait 90 days for auto-purge.
 ```
 
 **⏱️ Wait**: 10-15 minutes
