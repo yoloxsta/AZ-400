@@ -376,7 +376,7 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - Kafka ↔ Event Hubs term mapping
   - **Complete producer/consumer labs with real code**
 
-- **[Day 39 Part 2: Self-Managed Kafka on VMs](day-39-part2-kafka-self-managed.md)** ⭐ NEW
+- **[Day 39 Part 2: Self-Managed Kafka on VMs](day-39-part2-kafka-self-managed.md)** ⭐
   - Install Java, ZooKeeper, and Kafka on Azure VM
   - Kafka CLI tools (topics, producer, consumer, groups)
   - Produce and consume with Python
@@ -385,6 +385,21 @@ This learning path takes you from Azure DevOps basics to advanced CI/CD patterns
   - Failover testing (kill broker, verify no data loss)
   - Broker recovery (restart, auto-resync)
   - **Complete cluster with replication and failover**
+
+### Week 12: Security & Secrets
+
+- **[Day 40: Azure Key Vault - Secrets, Keys & Certificates](day-40-azure-key-vault.md)** ⭐ NEW
+  - What is Key Vault and why use it (vs secrets in code)
+  - Store and retrieve secrets (Portal + CLI)
+  - Secret versions and rotation
+  - Managed Identity (VM accesses Key Vault, no passwords!)
+  - Python SDK (DefaultAzureCredential)
+  - Encryption keys (RSA 2048)
+  - SSL/TLS certificates (self-signed, auto-renew)
+  - Key Vault in Azure DevOps Pipeline (AzureKeyVault@2)
+  - Soft delete and recovery
+  - RBAC roles for Key Vault
+  - **Complete labs with 5 access methods**
 
 ### Bonus Labs
 
