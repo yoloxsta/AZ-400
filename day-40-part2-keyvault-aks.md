@@ -1,25 +1,27 @@
-# Day 40 Part 2: Azure Key Vault + AKS - Deploy App with Secrets
+# Day 40 Part 2: Azure Key Vault + AKS + PostgreSQL - Real-World Demo
 
 ## What You'll Learn
 
-Deploy an app on AKS that reads secrets from Azure Key Vault:
-- ✅ Create Key Vault with secrets
+Deploy a real app on AKS that connects to PostgreSQL using secrets from Key Vault:
+- ✅ Create Azure Database for PostgreSQL (real database)
+- ✅ Store real DB credentials in Key Vault
 - ✅ Create AKS with Key Vault CSI Driver
 - ✅ Workload Identity (pod authenticates to Key Vault)
 - ✅ SecretProviderClass (mount secrets into pod)
-- ✅ Deploy app that reads secrets from Key Vault
+- ✅ Deploy app that reads secrets and connects to PostgreSQL
 - ✅ Complete test, check, and confirm
 
 ## Table of Contents
 
 1. [Architecture](#architecture)
-2. [Lab 1: Create Key Vault and Secrets](#lab-1-create-key-vault-and-secrets)
-3. [Lab 2: Create AKS with CSI Driver](#lab-2-create-aks-with-csi-driver)
-4. [Lab 3: Configure Workload Identity](#lab-3-configure-workload-identity)
-5. [Lab 4: Create SecretProviderClass](#lab-4-create-secretproviderclass)
-6. [Lab 5: Deploy Application](#lab-5-deploy-application)
-7. [Lab 6: Test and Verify](#lab-6-test-and-verify)
-8. [Cleanup](#cleanup)
+2. [Lab 1: Create PostgreSQL Database](#lab-1-create-postgresql-database)
+3. [Lab 2: Create Key Vault and Store DB Credentials](#lab-2-create-key-vault-and-store-db-credentials)
+4. [Lab 3: Create AKS with CSI Driver](#lab-3-create-aks-with-csi-driver)
+5. [Lab 4: Configure Workload Identity](#lab-4-configure-workload-identity)
+6. [Lab 5: Create SecretProviderClass](#lab-5-create-secretproviderclass)
+7. [Lab 6: Deploy Application](#lab-6-deploy-application)
+8. [Lab 7: Test and Verify](#lab-7-test-and-verify)
+9. [Cleanup](#cleanup)
 
 ---
 
@@ -27,8 +29,18 @@ Deploy an app on AKS that reads secrets from Azure Key Vault:
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│  HOW IT WORKS                                                     │
+│  HOW IT WORKS (Real-World Flow)                                   │
 │                                                                   │
+│  Step 0: You create PostgreSQL and store creds in Key Vault      │
+│                                                                   │
+│  ┌─────────────────┐                                             │
+│  │ Azure PostgreSQL │  You create this FIRST (Portal)            │
+│  │                  │  Host: pgday40.postgres.database.azure.com │
+│  │  Database: appdb │  User: pgadmin                             │
+│  │  Tables: users   │  Password: PgDay40@2026                    │
+│  └────────┬────────┘                                             │
+│           │ store these credentials                               │
+│           ↓                                                       │
 │  ┌─────────────────┐         ┌─────────────────┐                │
 │  │ Azure Key Vault  │         │ AKS Cluster      │                │
 │  │                  │         │                   │                │
@@ -36,19 +48,25 @@ Deploy an app on AKS that reads secrets from Azure Key Vault:
 │  │ ├─ db-host       │◄────── │ ├─ App container  │                │
 │  │ ├─ db-user       │  reads │ │   reads from    │                │
 │  │ ├─ db-password   │  via   │ │   /mnt/secrets/ │                │
-│  │ └─ api-key       │  CSI   │ ├─ CSI volume     │                │
+│  │ └─ db-name       │  CSI   │ ├─ CSI volume     │                │
 │  │                  │ driver │ │   (mounted)     │                │
 │  └─────────────────┘         │ └─ Service Account│                │
 │                               │   (Workload ID)  │                │
+│                               └────────┬─────────┘                │
+│                                        │ connects using           │
+│                                        │ secrets from KV          │
+│                                        ↓                          │
+│                               ┌─────────────────┐                │
+│                               │ Azure PostgreSQL  │                │
+│                               │ (real database!)  │                │
 │                               └─────────────────┘                │
 │                                                                   │
-│  Flow:                                                           │
-│  1. Pod starts with a Service Account                            │
-│  2. Service Account has Workload Identity (federated credential) │
-│  3. CSI Driver uses that identity to authenticate to Key Vault   │
-│  4. CSI Driver fetches secrets and mounts as files in the pod    │
-│  5. App reads secrets from /mnt/secrets/db-password (file)       │
-│  6. No secrets in YAML, no secrets in environment variables!     │
+│  Real-world flow:                                                │
+│  1. Create PostgreSQL → note host, user, password, dbname        │
+│  2. Store those credentials in Key Vault                         │
+│  3. AKS pod reads credentials from Key Vault via CSI Driver     │
+│  4. App uses credentials to connect to PostgreSQL                │
+│  5. No secrets in code, YAML, or environment variables!          │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -74,126 +92,169 @@ With CSI Driver:
 
 ---
 
-## Lab 1: Create Key Vault and Secrets
+## Lab 1: Create PostgreSQL Database
+
+### What We'll Do
+
+```
+Create a REAL PostgreSQL database first.
+Then store its credentials in Key Vault.
+This is how production works:
+  1. Create the database → get host, user, password, dbname
+  2. Store credentials in Key Vault (NOT in code!)
+  3. AKS app reads from Key Vault → connects to database
+```
 
 ### Step 1: Create Resource Group
 
 ```
-1. Azure Portal → Search "Resource groups" → "+ Create"
-2. Fill in:
-   - Subscription: Your subscription
-   - Resource group: rg-day40-aks-kv
-   - Region: East US
-3. Click "Review + create" → "Create"
+1. Azure Portal → Resource groups → "+ Create"
+2. Name: rg-day40-aks-kv
+3. Region: East US
+4. Click "Review + create" → "Create"
 ```
 
-### Step 2: Create Key Vault
+### Step 2: Create Azure Database for PostgreSQL
 
 ```
-1. Search "Key vaults" in Azure Portal → "+ Create"
-2. Fill in:
+1. Search "Azure Database for PostgreSQL flexible servers" → "+ Create"
+2. Select: Flexible server → Create
+3. Fill in:
 
    Basics:
-   - Subscription: Your subscription
    - Resource group: rg-day40-aks-kv
-   - Key vault name: kv-day40-aks (must be globally unique)
+   - Server name: pgday40 (must be globally unique)
    - Region: East US
-   - Pricing tier: Standard
+   - PostgreSQL version: 16 (or latest)
+   - Workload type: Development (cheapest)
+   - Compute + storage: Click "Configure server"
+     - Compute tier: Burstable
+     - Compute size: Standard_B1ms (1 vCore, cheapest)
+     - Storage: 32 GB
+     - Click "Save"
 
-   Access configuration:
-   - Permission model: Azure role-based access control (RBAC)
+   Authentication:
+   - Authentication method: PostgreSQL authentication only
+   - Admin username: pgadmin
+   - Password: PgDay40@2026
+   - Confirm password: PgDay40@2026
 
    Networking:
-   - Public access: All networks (for lab)
+   - Connectivity method: Public access (Allowed IP addresses)
+   - Allow public access from any Azure service: ✅ Yes
+   - Click "+ Add current client IP address"
 
-3. Click "Review + create" → "Create"
+4. Click "Review + create" → "Create"
 ```
 
-**⏱️ Wait**: 1-2 minutes
+**⏱️ Wait**: 5-10 minutes
 
-### Step 3: Assign Yourself Admin Access
-
-```
-1. Go to kv-day40-aks
-2. Left menu → "Access control (IAM)"
-3. Click "+ Add" → "Add role assignment"
-4. Role: Search "Key Vault Administrator" → Select it → Next
-5. Members: Click "+ Select members" → Select your user → Select
-6. Click "Review + assign" → "Review + assign"
-
-⏱️ Wait: 1-2 minutes for role to propagate
-```
-
-### Step 4: Store Secrets via Portal
+### Step 3: Note Connection Details
 
 ```
-1. Go to kv-day40-aks → Left menu → "Secrets"
-2. Click "+ Generate/Import" for each secret:
-
-   Secret 1:
-   - Name: db-host
-   - Secret value: mydb.database.azure.com
-   - Click "Create"
-
-   Secret 2:
-   - Name: db-user
-   - Secret value: appadmin
-   - Click "Create"
-
-   Secret 3:
-   - Name: db-password
-   - Secret value: SuperSecret@2026
-   - Click "Create"
-
-   Secret 4:
-   - Name: api-key
-   - Secret value: sk_live_abc123xyz789
-   - Click "Create"
-
-   Secret 5:
-   - Name: app-env
-   - Secret value: production
-   - Click "Create"
+Go to pgday40 → Overview. Note these values:
+  Host:     pgday40.postgres.database.azure.com
+  Username: pgadmin
+  Password: PgDay40@2026
+  Port:     5432
 ```
 
-### Step 5: Verify Secrets
+### Step 4: Create Database and Table
 
 ```
-1. Go to kv-day40-aks → Secrets
-2. Verify all 5 secrets listed:
-   ✅ api-key
-   ✅ app-env
-   ✅ db-host
-   ✅ db-password
-   ✅ db-user
+1. Go to pgday40 → Databases → "+ Add" → Name: appdb → Save
 
-3. Click "db-password" → Click current version → "Show Secret Value"
-   ✅ SuperSecret@2026
+2. Connect via psql (laptop or Cloud Shell):
+   psql "host=pgday40.postgres.database.azure.com port=5432 \
+     dbname=appdb user=pgadmin password=PgDay40@2026 sslmode=require"
+
+3. Run SQL:
+   CREATE TABLE users (
+       id SERIAL PRIMARY KEY,
+       name VARCHAR(100) NOT NULL,
+       email VARCHAR(100) NOT NULL,
+       created_at TIMESTAMP DEFAULT NOW()
+   );
+
+   INSERT INTO users (name, email) VALUES
+   ('Alice', 'alice@example.com'),
+   ('Bob', 'bob@example.com'),
+   ('Carol', 'carol@example.com');
+
+   SELECT * FROM users;
+   -- 3 rows ✅
+   \q
 ```
 
-### Step 6: Test, Check, and Confirm
-
-**Test 1: Key Vault Created**
+### Step 5: Test, Check, and Confirm
 
 ```
-Key vaults → kv-day40-aks
-  ✅ Status: Active
-  ✅ Permission model: RBAC
+✅ PostgreSQL: pgday40 (Available)
+✅ Database: appdb with users table (3 rows)
+✅ Credentials noted for Key Vault
 ```
 
-**Test 2: All Secrets Stored**
-
-```
-kv-day40-aks → Secrets
-  ✅ 5 secrets listed
-  ✅ Each secret value readable
-```
-
-**✅ Result**: Key Vault with secrets ready!
+**✅ Result**: Real PostgreSQL database ready!
 
 ---
 
-## Lab 2: Create AKS with CSI Driver
+## Lab 2: Create Key Vault and Store DB Credentials
+
+### Step 1: Create Key Vault
+
+```
+1. Search "Key vaults" → "+ Create"
+2. Fill in:
+   - Resource group: rg-day40-aks-kv
+   - Key vault name: kv-day40-aks (globally unique)
+   - Region: East US
+   - Pricing tier: Standard
+   - Permission model: Azure role-based access control (RBAC)
+   - Networking: All networks
+3. Click "Review + create" → "Create"
+```
+
+### Step 2: Assign Yourself Admin Access
+
+```
+1. Go to kv-day40-aks → Access control (IAM)
+2. "+ Add" → "Add role assignment"
+3. Role: Key Vault Administrator → Next
+4. Members: Select your user → Select
+5. Click "Review + assign"
+⏱️ Wait 1-2 minutes
+```
+
+### Step 3: Store REAL PostgreSQL Credentials
+
+```
+Store the ACTUAL credentials from Lab 1:
+
+1. kv-day40-aks → Secrets → "+ Generate/Import"
+
+   - Name: db-host     Value: pgday40.postgres.database.azure.com → Create
+   - Name: db-user     Value: pgadmin → Create
+   - Name: db-password Value: PgDay40@2026 → Create
+   - Name: db-name     Value: appdb → Create
+   - Name: db-port     Value: 5432 → Create
+```
+
+### Step 4: Verify Secrets
+
+```
+kv-day40-aks → Secrets
+  ✅ db-host → pgday40.postgres.database.azure.com
+  ✅ db-user → pgadmin
+  ✅ db-password → PgDay40@2026
+  ✅ db-name → appdb
+  ✅ db-port → 5432
+```
+
+**✅ Result**: Real DB credentials stored in Key Vault!
+
+---
+
+## Lab 3: Create AKS with CSI Driver
 
 ### Step 1: Create AKS Cluster via Portal
 
@@ -362,7 +423,7 @@ kubectl get pods -n kube-system -l app=secrets-store-provider-azure
 
 ---
 
-## Lab 3: Configure Workload Identity
+## Lab 4: Configure Workload Identity
 
 ### What is Workload Identity?
 
@@ -542,7 +603,7 @@ az identity federated-credential show --name fed-cred-kv --identity-name id-kv-r
 
 ---
 
-## Lab 4: Create SecretProviderClass
+## Lab 5: Create SecretProviderClass
 
 ### What is SecretProviderClass?
 
@@ -584,10 +645,10 @@ spec:
           objectName: db-password
           objectType: secret
         - |
-          objectName: api-key
+          objectName: db-name
           objectType: secret
         - |
-          objectName: app-env
+          objectName: db-port
           objectType: secret
 EOF
 ```
@@ -618,7 +679,7 @@ kubectl get secretproviderclass kv-secrets
 
 ---
 
-## Lab 5: Deploy Application
+## Lab 6: Deploy Application
 
 ### Step 1: Create Application Deployment
 
@@ -642,9 +703,9 @@ spec:
       serviceAccountName: kv-workload-sa
       containers:
       - name: app
-        image: nginx:alpine
+        image: python:3.11-slim
         ports:
-        - containerPort: 80
+        - containerPort: 5000
         volumeMounts:
         - name: secrets-store
           mountPath: "/mnt/secrets"
@@ -652,27 +713,71 @@ spec:
         command: ["/bin/sh", "-c"]
         args:
           - |
-            # Create a page that shows secrets are loaded (masked)
-            cat > /usr/share/nginx/html/index.html << HTMLEOF
-            <html>
-            <head><title>KV Demo App</title></head>
-            <body style="background:#1a1a2e;color:#e94560;font-family:Arial;text-align:center;padding:30px">
-              <h1>Key Vault + AKS Demo</h1>
-              <h2>Secrets loaded from Azure Key Vault!</h2>
-              <div style="background:#16213e;padding:20px;border-radius:10px;max-width:500px;margin:20px auto;text-align:left">
-                <p><strong>DB Host:</strong> $(cat /mnt/secrets/db-host)</p>
-                <p><strong>DB User:</strong> $(cat /mnt/secrets/db-user)</p>
-                <p><strong>DB Password:</strong> $(cat /mnt/secrets/db-password | head -c 4)****</p>
-                <p><strong>API Key:</strong> $(cat /mnt/secrets/api-key | head -c 8)****</p>
-                <p><strong>Environment:</strong> $(cat /mnt/secrets/app-env)</p>
-              </div>
-              <p style="color:#0f3460">Hostname: $(hostname)</p>
-              <p style="color:#0f3460">Secrets mounted at: /mnt/secrets/</p>
-            </body>
-            </html>
-            HTMLEOF
-            # Start nginx
-            nginx -g 'daemon off;'
+            pip install flask psycopg2-binary -q &&
+            cat > /tmp/app.py << 'PYEOF'
+            from flask import Flask, jsonify
+            import psycopg2
+            import os
+
+            app = Flask(__name__)
+
+            def read_secret(name):
+                try:
+                    with open(f'/mnt/secrets/{name}', 'r') as f:
+                        return f.read().strip()
+                except:
+                    return f"SECRET_{name}_NOT_FOUND"
+
+            def get_db_connection():
+                return psycopg2.connect(
+                    host=read_secret('db-host'),
+                    port=read_secret('db-port'),
+                    dbname=read_secret('db-name'),
+                    user=read_secret('db-user'),
+                    password=read_secret('db-password'),
+                    sslmode='require'
+                )
+
+            @app.route('/')
+            def home():
+                return jsonify({
+                    'service': 'KV + AKS + PostgreSQL Demo',
+                    'db_host': read_secret('db-host'),
+                    'db_name': read_secret('db-name'),
+                    'db_user': read_secret('db-user'),
+                    'db_password': read_secret('db-password')[:4] + '****',
+                    'endpoints': ['/users', '/health']
+                })
+
+            @app.route('/health')
+            def health():
+                try:
+                    conn = get_db_connection()
+                    conn.close()
+                    return jsonify({'status': 'healthy', 'database': 'connected'})
+                except Exception as e:
+                    return jsonify({'status': 'unhealthy', 'error': str(e)}), 500
+
+            @app.route('/users')
+            def users():
+                try:
+                    conn = get_db_connection()
+                    cur = conn.cursor()
+                    cur.execute('SELECT id, name, email, created_at::text FROM users')
+                    rows = cur.fetchall()
+                    cur.close()
+                    conn.close()
+                    return jsonify({
+                        'source': 'Azure PostgreSQL (via Key Vault secrets)',
+                        'users': [{'id': r[0], 'name': r[1], 'email': r[2], 'created_at': r[3]} for r in rows]
+                    })
+                except Exception as e:
+                    return jsonify({'error': str(e)}), 500
+
+            if __name__ == '__main__':
+                app.run(host='0.0.0.0', port=5000)
+            PYEOF
+            python /tmp/app.py
       volumes:
       - name: secrets-store
         csi:
@@ -690,31 +795,22 @@ spec:
   type: LoadBalancer
   ports:
   - port: 80
-    targetPort: 80
+    targetPort: 5000
   selector:
     app: kv-demo-app
 EOF
 ```
 
-**Key parts explained:**
+**What this app does:**
 
 ```
-serviceAccountName: kv-workload-sa
-  → Uses the service account with Workload Identity
-  → This is how the pod authenticates to Key Vault
-
-volumeMounts:
-  mountPath: "/mnt/secrets"
-  → Secrets will appear as files at /mnt/secrets/
-  → /mnt/secrets/db-host contains "mydb.database.azure.com"
-  → /mnt/secrets/db-password contains "SuperSecret@2026"
-
-volumes:
-  csi:
-    driver: secrets-store.csi.k8s.io
-    secretProviderClass: "kv-secrets"
-  → Uses the CSI driver to fetch secrets
-  → References our SecretProviderClass
+1. Reads DB credentials from /mnt/secrets/ (mounted by CSI Driver)
+2. Connects to REAL PostgreSQL using those credentials
+3. Endpoints:
+   /        → Shows config (password masked)
+   /health  → Tests DB connection
+   /users   → Queries users table from PostgreSQL
+4. No credentials in code! All from Key Vault!
 ```
 
 ### Step 2: Wait for Pods
@@ -761,65 +857,100 @@ POD=$(kubectl get pods -l app=kv-demo-app -o jsonpath='{.items[0].metadata.name}
 
 # List secret files
 kubectl exec $POD -- ls /mnt/secrets/
-# api-key
-# app-env
 # db-host
+# db-name
 # db-password
+# db-port
 # db-user
 # ✅ All 5 secrets mounted as files!
 
 # Read a secret
 kubectl exec $POD -- cat /mnt/secrets/db-host
-# mydb.database.azure.com ✅
+# pgday40.postgres.database.azure.com ✅
 
-kubectl exec $POD -- cat /mnt/secrets/db-password
-# SuperSecret@2026 ✅
+kubectl exec $POD -- cat /mnt/secrets/db-name
+# appdb ✅
 ```
 
-**Test 3: Web Page Shows Secrets**
+**Test 3: App Home Page**
 
 ```bash
-curl http://$APP_IP
+curl http://$APP_IP/
 
-# Shows HTML with:
-# DB Host: mydb.database.azure.com
-# DB User: appadmin
-# DB Password: Supe****
-# API Key: sk_live_****
-# Environment: production
-# ✅ Secrets loaded from Key Vault!
+# {
+#   "service": "KV + AKS + PostgreSQL Demo",
+#   "db_host": "pgday40.postgres.database.azure.com",
+#   "db_name": "appdb",
+#   "db_user": "pgadmin",
+#   "db_password": "PgDa****",
+#   "endpoints": ["/users", "/health"]
+# }
+# ✅ Config from Key Vault (password masked)!
 ```
 
-**Test 4: Open in Browser**
+**Test 4: Health Check (DB Connection)**
+
+```bash
+curl http://$APP_IP/health
+
+# {"status":"healthy","database":"connected"}
+# ✅ App connected to PostgreSQL using Key Vault secrets!
+```
+
+**Test 5: Query Real Data from PostgreSQL**
+
+```bash
+curl http://$APP_IP/users
+
+# {
+#   "source": "Azure PostgreSQL (via Key Vault secrets)",
+#   "users": [
+#     {"id": 1, "name": "Alice", "email": "alice@example.com", "created_at": "2026-..."},
+#     {"id": 2, "name": "Bob", "email": "bob@example.com", "created_at": "2026-..."},
+#     {"id": 3, "name": "Carol", "email": "carol@example.com", "created_at": "2026-..."}
+#   ]
+# }
+# ✅ REAL DATA from PostgreSQL!
+# ✅ Credentials came from Key Vault!
+# ✅ Zero secrets in code!
+```
+
+**Test 6: Open in Browser**
 
 ```
-http://<APP-EXTERNAL-IP>
+http://<APP-EXTERNAL-IP>/users
 
-✅ "Key Vault + AKS Demo"
-✅ "Secrets loaded from Azure Key Vault!"
-✅ DB Host, DB User shown
-✅ Password and API Key masked
+✅ Shows 3 users from PostgreSQL
+✅ Data is REAL (from the database you created in Lab 1)
+✅ Credentials are from Key Vault (not hardcoded)
 ```
 
 **✅ Result**: App deployed with Key Vault secrets!
 
 ---
 
-## Lab 6: Test and Verify
+## Lab 7: Test and Verify
 
 ### Test 1: Update Secret in Key Vault
 
 ```bash
 # Update db-password in Key Vault
-az keyvault secret set --vault-name kv-day40-aks --name db-password --value "RotatedPassword@2026"
+az keyvault secret set --vault-name kv-day40-aks --name db-password --value "RotatedPgPass@2026"
+
+# ⚠️ IMPORTANT: You also need to update the actual PostgreSQL password!
+# Go to pgday40 → Reset password → RotatedPgPass@2026
+# Otherwise the app will fail to connect (old password in DB, new in KV)
 
 # CSI Driver auto-refreshes (default: every 2 minutes)
 # Wait 2-3 minutes, then check:
 
 POD=$(kubectl get pods -l app=kv-demo-app -o jsonpath='{.items[0].metadata.name}')
 kubectl exec $POD -- cat /mnt/secrets/db-password
-# RotatedPassword@2026 ✅
-# Secret updated WITHOUT redeploying the pod!
+# RotatedPgPass@2026 ✅
+
+# Test DB connection still works
+curl http://$APP_IP/health
+# {"status":"healthy","database":"connected"} ✅
 ```
 
 ### Test 2: Verify No Secrets in YAML
@@ -873,7 +1004,8 @@ kubectl exec $NEW_POD -- cat /mnt/secrets/db-host
 
 ```
 Infrastructure:
-  ✅ Key Vault: kv-day40-aks with 5 secrets
+  ✅ PostgreSQL: pgday40 with appdb database and users table
+  ✅ Key Vault: kv-day40-aks with 5 REAL DB credentials
   ✅ AKS: 2 nodes with CSI Driver
   ✅ Managed Identity: id-kv-reader with Key Vault Secrets User role
   ✅ Workload Identity: Federated credential linked
@@ -884,13 +1016,12 @@ Kubernetes:
   ✅ Deployment: 2 pods running
   ✅ Service: LoadBalancer with public IP
 
-Secrets:
-  ✅ Mounted at /mnt/secrets/ in each pod
-  ✅ All 5 secrets readable as files
-  ✅ No secrets in Kubernetes YAML
-  ✅ No Kubernetes Secrets created
-  ✅ Auto-refresh when Key Vault secret changes
-  ✅ New pods automatically get secrets
+Application:
+  ✅ / → Shows config (password masked)
+  ✅ /health → "healthy", database connected
+  ✅ /users → Returns 3 users from PostgreSQL
+  ✅ Secrets from Key Vault, data from PostgreSQL
+  ✅ Zero credentials in code or YAML!
 ```
 
 ---
@@ -925,7 +1056,13 @@ Secrets:
 │     → Mounts as files at /mnt/secrets/                           │
 │                                                                   │
 │  8. App reads files                                              │
-│     cat /mnt/secrets/db-password → "SuperSecret@2026"            │
+│     cat /mnt/secrets/db-password → "PgDay40@2026"                │
+│                                                                   │
+│  9. App connects to PostgreSQL using those credentials           │
+│     psycopg2.connect(host=..., password=...) → Real DB!         │
+│                                                                   │
+│  10. App returns REAL data from PostgreSQL                       │
+│      /users → Alice, Bob, Carol (from database!)                │
 │                                                                   │
 │  ZERO secrets in code, YAML, or environment variables!           │
 └──────────────────────────────────────────────────────────────────┘
@@ -937,18 +1074,18 @@ Secrets:
 
 ```
 1. Delete AKS Cluster:
-   - Search "Kubernetes services" → aks-day40-kv → Delete
-   - Type cluster name to confirm → Delete
+   - Kubernetes services → aks-day40-kv → Delete
 
-2. Delete Resource Group (deletes everything):
+2. Delete PostgreSQL:
+   - Azure Database for PostgreSQL → pgday40 → Delete
+
+3. Delete Resource Group (deletes everything):
    - Resource groups → rg-day40-aks-kv → Delete
    - Type name to confirm → Delete
 
-3. Purge Key Vault (after soft delete):
-   - Search "Key vaults" → "Manage deleted vaults"
-   - Find kv-day40-aks → "Purge"
-   
-   Or wait 90 days for auto-purge.
+4. Purge Key Vault:
+   - Key vaults → "Manage deleted vaults"
+   - Find kv-day40-aks → Purge
 ```
 
 **⏱️ Wait**: 10-15 minutes
