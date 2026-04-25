@@ -13,10 +13,11 @@
 6. [Part D — Azure Container Registry (ACR) via GUI](#part-d--azure-container-registry-acr-via-gui)
 7. [Part E — Azure Kubernetes Service (AKS) via GUI](#part-e--azure-kubernetes-service-aks-via-gui)
 8. [Part F — Azure DevOps — Repo & Pipeline](#part-f--azure-devops--repo--pipeline)
-9. [Part G — Azure Artifacts (Package Feed) — Deep Dive](#part-g--azure-artifacts-package-feed--deep-dive)
-10. [Part H — End-to-End Deployment Walkthrough](#part-h--end-to-end-deployment-walkthrough)
-11. [Part I — Verification & Troubleshooting](#part-i--verification--troubleshooting)
-12. [Summary & Key Takeaways](#summary--key-takeaways)
+9. [Part F2 — Azure DevOps Agent Setup (Self-Hosted Runner)](#part-f2--azure-devops-agent-setup-self-hosted-runner)
+10. [Part G — Azure Artifacts (Package Feed) — Deep Dive](#part-g--azure-artifacts-package-feed--deep-dive)
+11. [Part H — End-to-End Deployment Walkthrough](#part-h--end-to-end-deployment-walkthrough)
+12. [Part I — Verification & Troubleshooting](#part-i--verification--troubleshooting)
+13. [Summary & Key Takeaways](#summary--key-takeaways)
 
 ---
 
@@ -34,6 +35,14 @@
 │  │Azure Artifacts│    └──────────────────────────────────────────┘   │
 │  │ (npm feed)    │                                                   │
 │  └──────────────┘                                                   │
+│                                                                     │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │  Self-Hosted Agent Pool                                     │   │
+│  │  ┌─────────────┐    ┌─────────────┐                        │   │
+│  │  │   Agent 1   │    │   Agent 2   │                        │   │
+│  │  │ (VM/Linux)  │    │ (VM/Linux)  │                        │   │
+│  │  └─────────────┘    └─────────────┘                        │   │
+│  └─────────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────┘
                                 │
                                 ▼
@@ -64,6 +73,7 @@
 | Source Control | Azure Repos (Git) |
 | CI/CD | Azure Pipelines (YAML) |
 | Package Management | Azure Artifacts (npm feed) |
+| Build Agent | Self-Hosted Agent (Linux VM) |
 
 ---
 
@@ -804,7 +814,7 @@ Run (triggers first build)
 5. Configure stages/tasks visually
 6. Save and queue
 
-### Pipeline Execution Flow
+### Pipeline Execution Flow (with Self-Hosted Agent)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -814,6 +824,9 @@ Run (triggers first build)
                   │
                   ▼
 ┌─────────────────────────────────────────────────────────────┐
+│  Self-Hosted Agent: vm-ado-agent-01                         │
+│  (Linux VM in Azure)                                        │
+│                                                             │
 │  STAGE 1: Build & Push                                      │
 │  ┌─────────────────────────────────────────────────────┐    │
 │  │ 1. Login to ACR                                     │    │
@@ -826,6 +839,8 @@ Run (triggers first build)
                   │
                   ▼
 ┌─────────────────────────────────────────────────────────────┐
+│  Same Agent Continues...                                    │
+│                                                             │
 │  STAGE 2: Deploy to AKS                                     │
 │  ┌─────────────────────────────────────────────────────┐    │
 │  │ 1. Update image tag in deployment.yaml              │    │
@@ -835,6 +850,220 @@ Run (triggers first build)
 │  └─────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+**Key Point:** Both stages run on the same self-hosted agent, maintaining:
+- Same environment/tools
+- Network connectivity to ACR/AKS
+- Cached Docker layers
+- Persistent workspace
+
+---
+
+## Part F2 — Azure DevOps Agent Setup (Self-Hosted Runner)
+
+### What is an Azure DevOps Agent?
+
+Azure DevOps Agents (also called "runners" or "build agents") are the machines that execute your pipeline jobs. There are two types:
+
+| Type | Description | Use Case |
+|---|---|---|
+| **Microsoft-Hosted Agents** | Managed by Microsoft, pre-installed software, ephemeral | General builds, open-source projects |
+| **Self-Hosted Agents** | You install and manage on your own infrastructure | Custom software, security requirements, network isolation |
+
+### Why Use Self-Hosted Agents?
+
+1. **Custom Software** - Install specific SDKs, tools, dependencies
+2. **Network Access** - Access internal resources (private ACR, on-prem systems)
+3. **Security** - Control over environment, no shared infrastructure
+4. **Performance** - Dedicated hardware, faster builds
+5. **Cost** - Can be cheaper for high-volume builds
+
+### Step 1: Create Agent Pool via Azure DevOps Portal
+
+1. Go to **Project Settings** → **Agent pools**
+2. Click **Add pool**
+3. Configure:
+   - **Pool type**: **Self-hosted**
+   - **Name**: `aks-build-agents`
+   - **Description**: "Self-hosted agents for AKS builds"
+   - **Auto-provision**: Unchecked (we'll add agents manually)
+4. Click **Create**
+
+### Step 2: Create Azure VM for Agent (Optional but Recommended)
+
+For AKS builds, you might want a Linux VM. Create via Azure Portal:
+
+1. **Azure Portal** → **Virtual machines** → **Create**
+2. Configure:
+   - **Subscription**: Your subscription
+   - **Resource group**: `rg-hello-aks-dev` (same as AKS)
+   - **VM name**: `vm-ado-agent-01`
+   - **Region**: `East US`
+   - **Image**: **Ubuntu Server 22.04 LTS**
+   - **Size**: **Standard_B2s** (2 vCPU, 4 GB RAM)
+   - **Authentication**: SSH public key or password
+3. Click **Review + create** → **Create**
+
+### Step 3: Install Agent Software on VM
+
+Connect to your VM via SSH:
+
+```bash
+# Update system
+sudo apt update && sudo apt upgrade -y
+
+# Install prerequisites
+sudo apt install -y curl git docker.io
+
+# Add user to docker group
+sudo usermod -aG docker $USER
+newgrp docker
+
+# Download agent
+mkdir myagent && cd myagent
+wget https://vstsagentpackage.azureedge.net/agent/3.242.2/vsts-agent-linux-x64-3.242.2.tar.gz
+tar zxvf vsts-agent-linux-x64-3.242.2.tar.gz
+```
+
+### Step 4: Configure Agent via GUI (Interactive Setup)
+
+```bash
+# Run configuration
+./config.sh
+```
+
+Follow the prompts:
+
+1. **Enter server URL**: `https://dev.azure.com/{your-org}`
+2. **Authentication method**: **PAT** (Personal Access Token)
+3. **Enter PAT**: (create in DevOps → User Settings → PATs)
+4. **Enter agent pool**: `aks-build-agents`
+5. **Enter agent name**: `vm-ado-agent-01`
+6. **Enter work folder**: `_work` (default)
+7. **Run as service?**: **Yes** (recommended)
+
+### Step 5: Start Agent as Service
+
+```bash
+# Install as service
+sudo ./svc.sh install
+
+# Start service
+sudo ./svc.sh start
+
+# Check status
+sudo ./svc.sh status
+```
+
+### Step 6: Verify Agent in Azure DevOps Portal
+
+1. Go to **Project Settings** → **Agent pools**
+2. Click `aks-build-agents` pool
+3. You should see `vm-ado-agent-01` agent with **Online** status
+4. Click agent → See capabilities, recent jobs
+
+### Step 7: Configure Pipeline to Use Self-Hosted Agent
+
+Update your `azure-pipelines.yml`:
+
+```yaml
+stages:
+  - stage: Build
+    displayName: "Build & Push Image to ACR"
+    jobs:
+      - job: BuildAndPush
+        displayName: "Build & Push"
+        pool:
+          name: 'aks-build-agents'  # ← Use self-hosted pool
+          demands:
+            - agent.name -equals vm-ado-agent-01  # Optional: specific agent
+```
+
+### Step 8: Install Additional Tools on Agent
+
+For AKS deployments, install:
+
+```bash
+# Azure CLI
+curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+
+# kubectl
+sudo az aks install-cli
+
+# Docker (already installed)
+# Helm (optional)
+curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+```
+
+### Step 9: Configure Agent Capabilities (GUI)
+
+Add custom capabilities to help pipeline routing:
+
+1. Go to agent pool → Click agent → **Capabilities** tab
+2. Click **Add capability**
+3. Add:
+   - **Name**: `docker`
+   - **Value**: `installed`
+4. Add more:
+   - `kubectl`, `azure-cli`, `node`, `npm`, etc.
+
+### Step 10: Agent Security Best Practices
+
+1. **Use Managed Identity** for VM → Assign roles (AcrPush, Contributor)
+2. **Restrict network** → NSG rules, private endpoints
+3. **Regular updates** → Patch OS, tools
+4. **Monitor logs** → Agent logs at `~/myagent/_diag`
+5. **Scale agents** → Add more VMs to pool for parallel builds
+
+### Agent Pool vs Agent vs Job Relationship
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                Azure DevOps Organization                  │
+│                                                           │
+│  ┌─────────────────────────────────────────────────────┐  │
+│  │                Agent Pool: aks-build-agents         │  │
+│  │  ┌─────────────┐    ┌─────────────┐                │  │
+│  │  │   Agent 1   │    │   Agent 2   │                │  │
+│  │  │ vm-agent-01 │    │ vm-agent-02 │                │  │
+│  │  └─────────────┘    └─────────────┘                │  │
+│  └─────────────────────────────────────────────────────┘  │
+│                                                           │
+│  ┌─────────────────────────────────────────────────────┐  │
+│  │                Pipeline Job                         │  │
+│  │  "pool: aks-build-agents" → picks available agent   │  │
+│  └─────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Common Agent Issues & Solutions
+
+| Issue | Solution |
+|---|---|
+| Agent offline | Check service: `sudo ./svc.sh status` |
+| PAT expired | Generate new PAT in DevOps → Update config |
+| Disk full | Clean `_work` folder: `rm -rf _work/*` |
+| Docker permission denied | `sudo usermod -aG docker $USER` + logout/login |
+| Azure CLI not found | Install: `curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash` |
+| kubectl not found | `az aks install-cli` |
+| Network timeout | Check NSG/firewall rules, proxy settings |
+
+### When to Use Microsoft-Hosted vs Self-Hosted
+
+**Use Microsoft-Hosted when:**
+- Simple builds
+- No special software requirements
+- Public repositories
+- Limited budget for infrastructure
+- Quick prototyping
+
+**Use Self-Hosted when:**
+- Building Docker images for private ACR
+- Deploying to private AKS
+- Need specific SDK versions
+- Security/compliance requirements
+- High-volume builds
+- Access to internal resources
 
 ---
 
@@ -1363,12 +1592,20 @@ git push origin main
 | Pipeline fails at AKS deploy | Missing Azure service connection | **DevOps**: Project Settings → Service connections → Create Azure Resource Manager connection |
 | Docker build fails | Missing .npmrc in Docker context | **Pipeline**: Add `COPY .npmrc .` before `RUN npm ci` in Dockerfile |
 | No packages in Artifacts feed | Not authenticated | **DevOps**: Artifacts → Feed → Connect to feed → Follow npm setup |
+| **Agent offline** | Agent service stopped | **VM**: SSH → `sudo ./svc.sh status` → `sudo ./svc.sh start` |
+| **No agent available** | Pool has no online agents | **DevOps**: Agent pools → Check agent status → Ensure online |
+| **Agent disk full** | _work folder filled | **VM**: Clean `_work` folder: `rm -rf _work/*` |
+| **Docker permission denied** | User not in docker group | **VM**: `sudo usermod -aG docker $USER` + logout/login |
+| **Azure CLI not found** | Not installed on agent | **VM**: `curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash` |
+| **kubectl not found** | Not installed on agent | **VM**: `az aks install-cli` |
 
 **GUI Troubleshooting Tips:**
 1. **Azure Portal Activity Log**: Check for errors in resource creation
 2. **AKS Insights**: Go to AKS → **Insights** for health metrics
 3. **Pipeline Logs**: Click on failed task → **View logs** for detailed error
 4. **Service Connection Test**: DevOps → Service connections → Click connection → **Test** button
+5. **Agent Status**: DevOps → Agent pools → Click pool → See agent status/capabilities
+6. **VM Diagnostics**: Portal → VM → Diagnostics → Check CPU/memory/disk
 
 ### Useful kubectl Commands (via Azure Cloud Shell)
 
