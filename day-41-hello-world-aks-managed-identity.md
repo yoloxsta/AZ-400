@@ -1,14 +1,17 @@
-# Day 41: Hello World App on AKS with User-Assigned Managed Identity, Azure DevOps CI/CD, ACR & Azure Artifacts
+# Day 41: Hello World App on AKS with User-Assigned Managed Identity (GUI Edition)
+## Complete GUI Guide: Azure Portal + Azure DevOps Portal
+
+> **⚠️ GUI-FOCUSED GUIDE:** This version uses Azure Portal (portal.azure.com) and Azure DevOps Portal (dev.azure.com) interfaces instead of CLI commands. All steps include screenshots references, button locations, and visual workflows.
 
 ## Table of Contents
 
 1. [Architecture Overview](#1-architecture-overview)
 2. [Prerequisites](#2-prerequisites)
 3. [Part A — Create the Hello World Application](#part-a--create-the-hello-world-application)
-4. [Part B — Azure Infrastructure Setup](#part-b--azure-infrastructure-setup)
+4. [Part B — Azure Infrastructure Setup (GUI)](#part-b--azure-infrastructure-setup-gui)
 5. [Part C — User-Assigned Managed Identity (Deep Dive)](#part-c--user-assigned-managed-identity-deep-dive)
-6. [Part D — Azure Container Registry (ACR)](#part-d--azure-container-registry-acr)
-7. [Part E — Azure Kubernetes Service (AKS)](#part-e--azure-kubernetes-service-aks)
+6. [Part D — Azure Container Registry (ACR) via GUI](#part-d--azure-container-registry-acr-via-gui)
+7. [Part E — Azure Kubernetes Service (AKS) via GUI](#part-e--azure-kubernetes-service-aks-via-gui)
 8. [Part F — Azure DevOps — Repo & Pipeline](#part-f--azure-devops--repo--pipeline)
 9. [Part G — Azure Artifacts (Package Feed) — Deep Dive](#part-g--azure-artifacts-package-feed--deep-dive)
 10. [Part H — End-to-End Deployment Walkthrough](#part-h--end-to-end-deployment-walkthrough)
@@ -67,22 +70,14 @@
 ## 2. Prerequisites
 
 - Azure Subscription with Owner/Contributor access
-- Azure CLI installed (`az --version` ≥ 2.50)
+- Azure Portal access (portal.azure.com)
 - Docker Desktop installed
-- kubectl installed (`az aks install-cli`)
 - Node.js 18+ and npm
-- Azure DevOps Organization & Project created
+- Azure DevOps Organization & Project created (dev.azure.com)
 - Git installed
+- Web browser (Chrome, Edge, Firefox)
 
-```bash
-# Verify tools
-az --version
-docker --version
-kubectl version --client
-node --version
-npm --version
-git --version
-```
+> **Note:** This guide uses GUI (Azure Portal & Azure DevOps Portal) instead of CLI commands.
 
 ---
 
@@ -200,42 +195,33 @@ curl http://localhost:3000/health
 
 ---
 
-## Part B — Azure Infrastructure Setup
+## Part B — Azure Infrastructure Setup (GUI)
 
-### Step 1: Set Variables
+### Step 1: Create Resource Group via Azure Portal
 
-```bash
-# ─── Configuration Variables ───
-RESOURCE_GROUP="rg-hello-aks-dev"
-LOCATION="eastus"
-ACR_NAME="acrhelloaksdev"          # Must be globally unique, lowercase, no hyphens
-AKS_CLUSTER="aks-hello-dev"
-IDENTITY_NAME="id-aks-hello-dev"   # User-Assigned Managed Identity name
-SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+1. Go to [Azure Portal](https://portal.azure.com)
+2. Click **Create a resource** (top-left)
+3. Search for **Resource group** and select it
+4. Click **Create**
+5. Configure:
+   - **Subscription**: Select your Azure subscription
+   - **Resource group name**: `rg-hello-aks-dev`
+   - **Region**: `East US`
+6. Click **Review + create**
+7. Click **Create**
 
-echo "Resource Group : $RESOURCE_GROUP"
-echo "Location       : $LOCATION"
-echo "ACR Name       : $ACR_NAME"
-echo "AKS Cluster    : $AKS_CLUSTER"
-echo "Identity Name  : $IDENTITY_NAME"
-echo "Subscription   : $SUBSCRIPTION_ID"
-```
+### Step 2: Note Your Configuration
 
-### Step 2: Create Resource Group
+Write down these values (you'll need them throughout the guide):
 
-```bash
-az group create \
-  --name $RESOURCE_GROUP \
-  --location $LOCATION
-
-# Output:
-# {
-#   "id": "/subscriptions/xxxx/resourceGroups/rg-hello-aks-dev",
-#   "location": "eastus",
-#   "name": "rg-hello-aks-dev",
-#   "properties": { "provisioningState": "Succeeded" }
-# }
-```
+| Resource | Name |
+|---|---|
+| Resource Group | `rg-hello-aks-dev` |
+| Location/Region | `East US` |
+| ACR Name | `acrhelloaksdev` (must be globally unique) |
+| AKS Cluster | `aks-hello-dev` |
+| Managed Identity | `id-aks-hello-dev` |
+| Azure DevOps Project | `hello-world-aks` |
 
 ---
 
@@ -261,50 +247,36 @@ Managed Identity is an Azure feature that provides an automatically managed iden
 3. **Survives recreation** — If you delete and recreate AKS, the identity and its role assignments remain
 4. **Better for CI/CD** — Pipeline can reference a known identity
 
-### Step 1: Create User-Assigned Managed Identity
+### Step 1: Create User-Assigned Managed Identity via Azure Portal
 
-```bash
-az identity create \
-  --name $IDENTITY_NAME \
-  --resource-group $RESOURCE_GROUP \
-  --location $LOCATION
+1. Go to **Azure Portal** → Search for **Managed Identities** in the search bar
+2. Click **Create**
+3. Configure:
+   - **Subscription**: Select your subscription
+   - **Resource group**: `rg-hello-aks-dev` (select existing)
+   - **Region**: `East US`
+   - **Name**: `id-aks-hello-dev`
+   - **Tags**: (optional) Add tags like `Environment=Dev`, `Project=HelloWorld`
+4. Click **Review + create** → **Create**
 
-# Output:
-# {
-#   "clientId": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
-#   "id": "/subscriptions/xxxx/resourcegroups/rg-hello-aks-dev/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-aks-hello-dev",
-#   "location": "eastus",
-#   "name": "id-aks-hello-dev",
-#   "principalId": "ffffffff-1111-2222-3333-444444444444",
-#   "type": "Microsoft.ManagedIdentity/userAssignedIdentities"
-# }
-```
+### Step 2: Capture Identity IDs from Portal
 
-### Step 2: Capture Identity IDs
+After creation, click on the identity `id-aks-hello-dev`:
 
-```bash
-# Get the full resource ID of the identity
-IDENTITY_ID=$(az identity show \
-  --name $IDENTITY_NAME \
-  --resource-group $RESOURCE_GROUP \
-  --query id -o tsv)
+1. **Overview** page shows:
+   - **Client ID**: `aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee` (copy this)
+   - **Principal ID**: `ffffffff-1111-2222-3333-444444444444` (copy this)
+   - **Resource ID**: `/subscriptions/xxxx/resourcegroups/rg-hello-aks-dev/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-aks-hello-dev` (copy this)
 
-# Get the Principal ID (Object ID in Azure AD)
-IDENTITY_PRINCIPAL_ID=$(az identity show \
-  --name $IDENTITY_NAME \
-  --resource-group $RESOURCE_GROUP \
-  --query principalId -o tsv)
+2. Write down these values:
 
-# Get the Client ID
-IDENTITY_CLIENT_ID=$(az identity show \
-  --name $IDENTITY_NAME \
-  --resource-group $RESOURCE_GROUP \
-  --query clientId -o tsv)
+| Identity Property | Value (example) | Where to find in Portal |
+|---|---|---|
+| Client ID | `aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee` | Overview → Client ID |
+| Principal ID (Object ID) | `ffffffff-1111-2222-3333-444444444444` | Overview → Principal ID |
+| Resource ID | `/subscriptions/.../id-aks-hello-dev` | Properties → Resource ID |
 
-echo "Identity Resource ID : $IDENTITY_ID"
-echo "Identity Principal ID: $IDENTITY_PRINCIPAL_ID"
-echo "Identity Client ID   : $IDENTITY_CLIENT_ID"
-```
+> **Important:** The Principal ID is what you'll use for role assignments. The Client ID is what AKS will use internally.
 
 ### How It Works — Visual Flow
 
@@ -334,165 +306,141 @@ Azure handles token exchange automatically.
 
 ---
 
-## Part D — Azure Container Registry (ACR)
+## Part D — Azure Container Registry (ACR) via GUI
 
-### Step 1: Create ACR
+### Step 1: Create ACR via Azure Portal
 
-```bash
-az acr create \
-  --name $ACR_NAME \
-  --resource-group $RESOURCE_GROUP \
-  --sku Basic \
-  --location $LOCATION
+1. Go to **Azure Portal** → Search for **Container registries**
+2. Click **Create**
+3. Configure:
+   - **Subscription**: Select your subscription
+   - **Resource group**: `rg-hello-aks-dev` (select existing)
+   - **Registry name**: `acrhelloaksdev` (must be globally unique, lowercase, no hyphens)
+   - **Location**: `East US`
+   - **SKU**: **Basic** (cheapest tier for dev)
+   - **Admin user**: **Disabled** (we'll use managed identity, not admin credentials)
+4. Click **Review + create** → **Create**
 
-# Output:
-# {
-#   "adminUserEnabled": false,
-#   "loginServer": "acrhelloaksdev.azurecr.io",
-#   "name": "acrhelloaksdev",
-#   "provisioningState": "Succeeded",
-#   "sku": { "name": "Basic", "tier": "Basic" }
-# }
-```
+### Step 2: Get ACR Details from Portal
 
-### Step 2: Get ACR Resource ID
+After creation, click on `acrhelloaksdev`:
 
-```bash
-ACR_ID=$(az acr show \
-  --name $ACR_NAME \
-  --resource-group $RESOURCE_GROUP \
-  --query id -o tsv)
+1. **Overview** page shows:
+   - **Login server**: `acrhelloaksdev.azurecr.io` (copy this)
+   - **Subscription ID**: (note this)
+   - **Resource ID**: `/subscriptions/xxxx/resourceGroups/rg-hello-aks-dev/providers/Microsoft.ContainerRegistry/registries/acrhelloaksdev` (copy this)
 
-echo "ACR Resource ID: $ACR_ID"
-```
-
-### Step 3: Assign AcrPull Role to Managed Identity
+### Step 3: Assign AcrPull Role to Managed Identity via Portal
 
 This is the key step — it allows the managed identity to pull images from ACR without any password.
 
-```bash
-az role assignment create \
-  --assignee $IDENTITY_PRINCIPAL_ID \
-  --role "AcrPull" \
-  --scope $ACR_ID
-
-# Output:
-# {
-#   "principalId": "ffffffff-1111-2222-3333-444444444444",
-#   "roleDefinitionName": "AcrPull",
-#   "scope": "/subscriptions/xxxx/resourceGroups/rg-hello-aks-dev/providers/Microsoft.ContainerRegistry/registries/acrhelloaksdev"
-# }
-```
+1. Go to your ACR → **Access control (IAM)** in left menu
+2. Click **+ Add** → **Add role assignment**
+3. Configure:
+   - **Role**: **AcrPull** (search for it)
+   - **Assign access to**: **User, group, or service principal**
+   - **Select**: Search for `id-aks-hello-dev` (your managed identity)
+4. Click **Review + assign** → **Assign**
 
 > **What is AcrPull?** It is a built-in Azure role that grants read-only access to pull container images from ACR. It does NOT allow pushing images.
 
-### Step 4: Test — Push an Image to ACR (Manual)
+### Step 4: Verify Role Assignment
+
+1. Go to ACR → **Access control (IAM)** → **Role assignments**
+2. Filter by **Role**: `AcrPull`
+3. You should see `id-aks-hello-dev` listed
+
+### Step 5: Test — Push an Image to ACR (Manual via Docker CLI)
 
 ```bash
-# Login to ACR
-az acr login --name $ACR_NAME
+# Login to ACR (still need CLI for this)
+az acr login --name acrhelloaksdev
 
 # Tag the local image for ACR
-docker tag hello-world-aks:local $ACR_NAME.azurecr.io/hello-world-aks:v1
+docker tag hello-world-aks:local acrhelloaksdev.azurecr.io/hello-world-aks:v1
 
 # Push to ACR
-docker push $ACR_NAME.azurecr.io/hello-world-aks:v1
-
-# Verify
-az acr repository list --name $ACR_NAME --output table
-# Result:
-# hello-world-aks
-
-az acr repository show-tags --name $ACR_NAME --repository hello-world-aks --output table
-# Result:
-# v1
+docker push acrhelloaksdev.azurecr.io/hello-world-aks:v1
 ```
+
+### Step 6: Verify Image in Portal
+
+1. Go to ACR → **Repositories** in left menu
+2. You should see `hello-world-aks` repository
+3. Click on it → You should see tag `v1`
 
 ---
 
-## Part E — Azure Kubernetes Service (AKS)
+## Part E — Azure Kubernetes Service (AKS) via GUI
 
-### Step 1: Create AKS Cluster with User-Assigned Managed Identity
+### Step 1: Create AKS Cluster via Azure Portal
 
-```bash
-az aks create \
-  --name $AKS_CLUSTER \
-  --resource-group $RESOURCE_GROUP \
-  --location $LOCATION \
-  --node-count 1 \
-  --node-vm-size Standard_B2s \
-  --generate-ssh-keys \
-  --assign-identity $IDENTITY_ID \
-  --assign-kubelet-identity $IDENTITY_ID \
-  --attach-acr $ACR_NAME \
-  --network-plugin azure \
-  --enable-managed-identity \
-  --no-wait
+1. Go to **Azure Portal** → Search for **Kubernetes services**
+2. Click **Create** → **Create a Kubernetes cluster**
+3. **Basics** tab:
+   - **Subscription**: Your subscription
+   - **Resource group**: `rg-hello-aks-dev` (select existing)
+   - **Kubernetes cluster name**: `aks-hello-dev`
+   - **Region**: `East US`
+   - **Availability zones**: None (for dev)
+   - **AKS pricing tier**: **Free** (for dev/testing)
 
-# Key flags explained:
-# --assign-identity         : Control plane uses this User-Assigned Managed Identity
-# --assign-kubelet-identity : Kubelet (node agent) uses this same identity to pull images
-# --attach-acr              : Automatically assigns AcrPull role (we already did it, but this ensures it)
-# --enable-managed-identity : Enables managed identity mode (NOT service principal)
-# --no-wait                 : Don't wait for cluster creation (takes ~5-10 min)
-```
+4. **Node pools** tab:
+   - **Node pool name**: `nodepool1`
+   - **Node count**: `1`
+   - **Node size**: **Standard_B2s** (cheapest for dev)
+   - **Scale mode**: **Manual**
 
-> **Important:** We pass `--assign-identity` AND `--assign-kubelet-identity` with the same user-assigned identity. This means both the control plane and the kubelet use our pre-created identity — no system-assigned identity is created.
+5. **Authentication** tab (CRITICAL STEP):
+   - **Authentication method**: **Managed identity**
+   - **Managed identity**: **Use existing**
+   - **User-assigned managed identity**: Click **Select managed identity** → Choose `id-aks-hello-dev`
+   - **Kubelet identity**: Click **Select managed identity** → Choose `id-aks-hello-dev` (SAME identity!)
+
+6. **Networking** tab:
+   - **Network configuration**: **Azure CNI**
+   - **Network policy**: **None**
+
+7. **Integrations** tab:
+   - **Container registry**: **Attach a registry**
+   - **Registry**: Select `acrhelloaksdev`
+   - This automatically grants AcrPull role (we already did it, but this ensures it)
+
+8. Click **Review + create** → **Create** (takes 5-10 minutes)
+
+> **Important:** Setting both **Managed identity** AND **Kubelet identity** to the same user-assigned identity means both the control plane and the kubelet use our pre-created identity — no system-assigned identity is created.
 
 ### Step 2: Wait for Cluster to Be Ready
 
-```bash
-# Check status
-az aks show \
-  --name $AKS_CLUSTER \
-  --resource-group $RESOURCE_GROUP \
-  --query "provisioningState" -o tsv
+1. Go to **Kubernetes services** → `aks-hello-dev`
+2. Watch the **Notifications** bell icon (top-right) for progress
+3. When status shows **Provisioning succeeded**, continue
 
-# Wait until output is: Succeeded
-```
+### Step 3: Get Credentials (kubeconfig) via Portal
 
-### Step 3: Get Credentials (kubeconfig)
+1. Go to AKS cluster → **Overview**
+2. Click **Connect** button (top)
+3. You'll see commands to:
+   - **Option 1**: Run in Azure Cloud Shell (opens browser-based terminal)
+   - **Option 2**: Run locally (requires Azure CLI installed)
 
-```bash
-az aks get-credentials \
-  --name $AKS_CLUSTER \
-  --resource-group $RESOURCE_GROUP \
-  --overwrite-existing
+4. For GUI approach, use **Azure Cloud Shell**:
+   - Click the Cloud Shell icon `>_` in top toolbar
+   - Select **Bash** environment
+   - Run the provided `az aks get-credentials` command
+   - Then run `kubectl get nodes` to verify connection
 
-# Verify connection
-kubectl get nodes
-# NAME                                STATUS   ROLES    AGE   VERSION
-# aks-nodepool1-12345678-vmss000000   Ready    <none>   5m    v1.28.x
-```
+### Step 4: Verify Identity Assignment in Portal
 
-### Step 4: Verify Identity Assignment
+1. Go to AKS cluster → **Properties**
+2. Check:
+   - **Identity type**: Should show **User assigned**
+   - **User assigned identities**: Should list `id-aks-hello-dev`
+   - **Kubelet identity**: Should show same identity
 
-```bash
-# Confirm the cluster is using User-Assigned (not System-Assigned)
-az aks show \
-  --name $AKS_CLUSTER \
-  --resource-group $RESOURCE_GROUP \
-  --query "identity" -o json
-
-# Expected output:
-# {
-#   "type": "UserAssigned",
-#   "userAssignedIdentities": {
-#     "/subscriptions/xxxx/.../id-aks-hello-dev": {
-#       "clientId": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
-#       "principalId": "ffffffff-1111-2222-3333-444444444444"
-#     }
-#   }
-# }
-
-# Confirm kubelet identity
-az aks show \
-  --name $AKS_CLUSTER \
-  --resource-group $RESOURCE_GROUP \
-  --query "identityProfile.kubeletidentity" -o json
-
-# Expected: shows the same user-assigned identity client ID
-```
+3. Alternative: Go to AKS → **Access control (IAM)** → **Role assignments**
+   - Filter by scope: `This resource`
+   - You should see `id-aks-hello-dev` with role `Managed Identity Operator`
 
 ### Step 5: Create Kubernetes Manifests
 
@@ -558,12 +506,18 @@ spec:
       targetPort: 3000
 ```
 
-### Step 6: Deploy Manually (Test)
+### Step 6: Deploy Manually (Test via Azure Cloud Shell)
+
+1. Open **Azure Cloud Shell** (`>_` icon in portal)
+2. Upload your `k8s` folder files:
+   - Click **Upload/download files** (top toolbar)
+   - Upload `deployment.yaml` and `service.yaml`
+3. Run commands:
 
 ```bash
 # Apply manifests
-kubectl apply -f k8s/deployment.yaml
-kubectl apply -f k8s/service.yaml
+kubectl apply -f deployment.yaml
+kubectl apply -f service.yaml
 
 # Check pods
 kubectl get pods -l app=hello-world-aks
@@ -575,11 +529,18 @@ kubectl get pods -l app=hello-world-aks
 kubectl get svc hello-world-aks-svc
 # NAME                  TYPE           CLUSTER-IP    EXTERNAL-IP     PORT(S)
 # hello-world-aks-svc   LoadBalancer   10.0.45.123   20.85.xxx.xxx   80:31234/TCP
-
-# Test
-curl http://20.85.xxx.xxx
-# {"message":"Hello World from AKS!","version":"1.0.0","hostname":"hello-world-aks-6b8f9c7d4f-abc12",...}
 ```
+
+4. Test the app:
+   - Copy the **EXTERNAL-IP** from above
+   - Open browser to `http://20.85.xxx.xxx`
+   - Should see: `{"message":"Hello World from AKS!","version":"1.0.0",...}`
+
+5. **Alternative GUI method**: Use **Azure Portal Workloads view**:
+   - Go to AKS cluster → **Workloads** (left menu)
+   - Click **+ Create** → **Create from YAML**
+   - Paste your YAML files
+   - Click **Create**
 
 ---
 
@@ -593,20 +554,41 @@ curl http://20.85.xxx.xxx
 4. Visibility: Private
 5. Click **Create**
 
-### Step 2: Push Code to Azure Repos
+### Step 2: Push Code to Azure Repos via GUI
+
+**Method 1: Using Azure DevOps Portal**
+
+1. Go to your Azure DevOps project → **Repos**
+2. Click **Initialize** (if empty repo) or **Clone** button
+3. You'll see Git commands to clone
+4. On your local machine:
 
 ```bash
-# Inside your hello-world-aks folder
-git init
+# Clone the empty repo
+git clone https://dev.azure.com/{your-org}/hello-world-aks/_git/hello-world-aks
+
+# Copy your code into the cloned folder
+cp -r ../hello-world-aks/* hello-world-aks/
+
+# Commit and push
+cd hello-world-aks
 git add .
 git commit -m "Initial commit - Hello World AKS app"
-
-# Add Azure Repos as remote
-# Replace {org} with your Azure DevOps org name
-git remote add origin https://dev.azure.com/{org}/hello-world-aks/_git/hello-world-aks
-
-git push -u origin main
+git push origin main
 ```
+
+**Method 2: Using Import Repository (GUI)**
+
+1. In Azure DevOps → **Repos** → **Files**
+2. Click **Import** button
+3. Select **Git** as source type
+4. Enter your local Git repository URL (if you have one)
+5. Click **Import**
+
+**Method 3: Using VS Code with Azure Repos Extension**
+1. Install "Azure Repos" extension in VS Code
+2. Sign in to Azure DevOps
+3. Clone repository directly from VS Code
 
 ### Your Repo Structure Should Look Like:
 
@@ -623,20 +605,36 @@ hello-world-aks/
 └── azure-pipelines.yml        ← We will create this next
 ```
 
-### Step 3: Create Service Connection (Azure DevOps → Azure)
+### Step 3: Create Service Connection (Azure DevOps → Azure) via GUI
 
 This allows Azure Pipelines to interact with your Azure subscription.
 
 1. In Azure DevOps → **Project Settings** (bottom-left gear icon)
 2. **Service connections** → **New service connection**
 3. Select **Azure Resource Manager**
-4. Select **Service principal (automatic)**
+4. Select **Service principal (automatic)** (recommended)
 5. Configure:
-   - Subscription: Select your Azure subscription
-   - Resource Group: `rg-hello-aks-dev`
-   - Service connection name: `azure-sub-connection`
-   - Check: **Grant access permission to all pipelines**
+   - **Subscription**: Select your Azure subscription from dropdown
+   - **Resource Group**: `rg-hello-aks-dev` (optional, can leave blank)
+   - **Service connection name**: `azure-sub-connection`
+   - **Description**: "Connection to Azure for AKS/ACR"
+   - ✅ **Grant access permission to all pipelines** (IMPORTANT: check this)
 6. Click **Save**
+
+**Visual Guide:**
+```
+Azure DevOps Project Settings
+    ↓
+Service connections
+    ↓
++ New service connection
+    ↓
+Azure Resource Manager
+    ↓
+Service principal (automatic)
+    ↓
+Fill form → Save
+```
 
 ### Step 4: Create the CI/CD Pipeline (`azure-pipelines.yml`)
 
@@ -752,7 +750,7 @@ stages:
                 kubectl get svc hello-world-aks-svc
 ```
 
-### Step 4b: Create Docker Service Connection for ACR
+### Step 4b: Create Docker Service Connection for ACR via GUI
 
 Before the pipeline can push to ACR, you need a Docker Registry service connection:
 
@@ -760,19 +758,51 @@ Before the pipeline can push to ACR, you need a Docker Registry service connecti
 2. Select **Docker Registry**
 3. Select **Azure Container Registry**
 4. Configure:
-   - Subscription: Your Azure subscription
-   - Azure Container Registry: `acrhelloaksdev`
-   - Service connection name: `acrhelloaksdev` (must match `containerRegistry` in pipeline)
+   - **Subscription**: Your Azure subscription (dropdown)
+   - **Azure Container Registry**: `acrhelloaksdev` (dropdown - will list your ACRs)
+   - **Service connection name**: `acrhelloaksdev` (MUST match `containerRegistry` in pipeline YAML)
+   - **Description**: "Connection to ACR for pushing Docker images"
+   - ✅ **Grant access permission to all pipelines**
 5. Click **Save**
 
-### Step 5: Create Pipeline in Azure DevOps
+**Note:** The service connection name `acrhelloaksdev` must exactly match what's in your `azure-pipelines.yml`:
+```yaml
+containerRegistry: $(acrName)  # This variable should be "acrhelloaksdev"
+```
 
-1. Go to **Pipelines** → **New Pipeline**
-2. Select **Azure Repos Git**
-3. Select your repo: `hello-world-aks`
+### Step 5: Create Pipeline in Azure DevOps via GUI
+
+1. Go to **Pipelines** → **New pipeline**
+2. Select **Azure Repos Git** (your code is in Azure Repos)
+3. Select your repository: `hello-world-aks`
 4. Select **Existing Azure Pipelines YAML file**
-5. Path: `/azure-pipelines.yml`
+5. Path: `/azure-pipelines.yml` (browse or type)
 6. Click **Run**
+
+**Visual Pipeline Creation Flow:**
+```
+Pipelines → New pipeline
+    ↓
+Azure Repos Git
+    ↓
+Select repository: hello-world-aks
+    ↓
+Configure your pipeline
+    ↓
+Existing Azure Pipelines YAML file
+    ↓
+Path: /azure-pipelines.yml
+    ↓
+Run (triggers first build)
+```
+
+**Alternative: Classic Editor (GUI-based pipeline builder)**
+1. **Pipelines** → **New pipeline**
+2. Select **Use the classic editor** (bottom)
+3. Select source: **Azure Repos Git**
+4. Choose YAML file path
+5. Configure stages/tasks visually
+6. Save and queue
 
 ### Pipeline Execution Flow
 
@@ -865,43 +895,67 @@ This gives you:
 
 ---
 
-### Step-by-Step: Create and Use Azure Artifacts npm Feed
+### Step-by-Step: Create and Use Azure Artifacts npm Feed via GUI
 
-#### Step 1: Create a Feed
+#### Step 1: Create a Feed via Azure DevOps Portal
 
 1. In Azure DevOps → **Artifacts** (left sidebar)
-2. Click **Create Feed**
+2. Click **Create Feed** button
 3. Configure:
-   - Name: `hello-world-npm-feed`
-   - Visibility: **People in your organization**
-   - Check: **Include packages from common public sources** (enables upstream from npmjs.com)
+   - **Name**: `hello-world-npm-feed`
+   - **Visibility**: **People in your organization** (or **Project** for project-only)
+   - ✅ **Include packages from common public sources** (IMPORTANT: enables upstream from npmjs.com)
+   - **Description**: "Private npm feed for Hello World AKS project"
 4. Click **Create**
 
-#### Step 2: Connect to Feed (Local Development)
+#### Step 2: Connect to Feed via GUI
 
-After creating the feed, click **Connect to Feed** → **npm**. You'll see instructions:
+After creating the feed:
 
-```bash
-# Create .npmrc in your project root
-# Replace {org} with your Azure DevOps org name
+1. Click on your feed `hello-world-npm-feed`
+2. Click **Connect to feed** button
+3. Select **npm** from the package manager list
+4. You'll see a GUI with:
+   - **.npmrc file content** (copy this)
+   - **Project setup instructions**
+   - **Authentication options**
 
-echo "registry=https://pkgs.dev.azure.com/{org}/hello-world-aks/_packaging/hello-world-npm-feed/npm/registry/
-always-auth=true" > .npmrc
+#### Step 3: Set Up .npmrc via GUI Instructions
+
+Copy the provided `.npmrc` content:
+
+```
+registry=https://pkgs.dev.azure.com/{your-org}/hello-world-aks/_packaging/hello-world-npm-feed/npm/registry/
+always-auth=true
 ```
 
-#### Step 3: Authenticate
+Create `.npmrc` in your project root with this content.
 
+#### Step 4: Authenticate via GUI Methods
+
+**Method 1: Personal Access Token (PAT) via Portal**
+1. Azure DevOps → User Settings (top-right) → **Personal Access Tokens**
+2. Click **New Token**
+3. Configure:
+   - **Name**: `npm-auth-token`
+   - **Organization**: Your org
+   - **Scopes**: **Packaging (Read & Write)**
+   - **Expiration**: 90 days (recommended)
+4. Click **Create** → **Copy token** (SAVE THIS - won't show again)
+
+**Method 2: vsts-npm-auth tool (CLI)**
 ```bash
-# Install the Azure Artifacts credential provider
+# Install credential provider
 npx vsts-npm-auth -config .npmrc
+# Follow prompts to sign in
+```
 
-# Or use a Personal Access Token (PAT):
-# 1. Azure DevOps → User Settings (top-right) → Personal Access Tokens
-# 2. Create token with "Packaging (Read & Write)" scope
-# 3. Add to .npmrc:
-#    //pkgs.dev.azure.com/{org}/_packaging/hello-world-npm-feed/npm/registry/:username={org}
-#    //pkgs.dev.azure.com/{org}/_packaging/hello-world-npm-feed/npm/registry/:_password={BASE64_PAT}
-#    //pkgs.dev.azure.com/{org}/_packaging/hello-world-npm-feed/npm/registry/:email=you@example.com
+**Method 3: Manual .npmrc with PAT**
+Add to your `.npmrc`:
+```
+//pkgs.dev.azure.com/{org}/_packaging/hello-world-npm-feed/npm/registry/:username={org}
+//pkgs.dev.azure.com/{org}/_packaging/hello-world-npm-feed/npm/registry/:_password={BASE64_ENCODED_PAT}
+//pkgs.dev.azure.com/{org}/_packaging/hello-world-npm-feed/npm/registry/:email=you@example.com
 ```
 
 #### Step 4: Create a Shared Package (Example)
@@ -934,8 +988,9 @@ module.exports = {
 }
 ```
 
-#### Step 5: Publish to Azure Artifacts Feed
+#### Step 5: Publish to Azure Artifacts Feed via GUI
 
+**Method 1: Using npm CLI (with authenticated .npmrc)**
 ```bash
 # Make sure .npmrc points to your feed
 npm publish
@@ -948,6 +1003,18 @@ npm publish
 # npm notice total files:   2
 # + @myorg/shared-logger@1.0.0
 ```
+
+**Method 2: Using Azure DevOps Portal**
+1. Go to **Artifacts** → `hello-world-npm-feed`
+2. Click **Publish** button
+3. Select **npm** as package type
+4. Upload your package files or use CLI method above
+
+**Method 3: Using VS Code Azure Artifacts Extension**
+1. Install "Azure Artifacts" extension in VS Code
+2. Sign in to Azure DevOps
+3. Right-click package.json → **Publish to Azure Artifacts**
+4. Select your feed
 
 #### Step 6: Consume the Package in Hello World App
 
@@ -985,9 +1052,9 @@ app.listen(PORT, () => {
 });
 ```
 
-#### Step 7: Use Azure Artifacts in Pipeline
+#### Step 7: Use Azure Artifacts in Pipeline via GUI Task
 
-Update `azure-pipelines.yml` to authenticate with the feed during build:
+Add the npmAuthenticate task to your pipeline YAML:
 
 ```yaml
 # Add this step BEFORE the Docker build in Stage 1
@@ -996,6 +1063,15 @@ Update `azure-pipelines.yml` to authenticate with the feed during build:
   inputs:
     workingFile: ".npmrc"
 ```
+
+**GUI Alternative: Add Task via Classic Editor**
+1. Edit pipeline → **Tasks** tab
+2. Click **+** to add task
+3. Search for **npm authenticate**
+4. Add task to your build stage
+5. Configure:
+   - **Working .npmrc file**: `.npmrc`
+   - **Custom registry**: (auto-detected from .npmrc)
 
 This ensures `npm ci` inside the Dockerfile can pull packages from your private feed.
 
@@ -1055,8 +1131,26 @@ CMD ["node", "server.js"]
 └────────────────────────────────────────────────────────────────────┘
 ```
 
-### Pipeline Artifact Example
+### Pipeline Artifact Example via GUI Tasks
 
+**Adding Publish Pipeline Artifact Task (GUI Method):**
+1. Edit pipeline → **Tasks** tab
+2. Select **Build** stage
+3. Click **+** to add task
+4. Search for **Publish Pipeline Artifact**
+5. Configure:
+   - **Path to publish**: `$(System.DefaultWorkingDirectory)/k8s`
+   - **Artifact name**: `k8s-manifests`
+   - **Artifact publish location**: **Azure Pipelines**
+
+**Adding Download Pipeline Artifact Task (GUI Method):**
+1. Select **Deploy** stage
+2. Add task **Download Pipeline Artifact**
+3. Configure:
+   - **Artifact name**: `k8s-manifests`
+   - **Download path**: `$(Pipeline.Workspace)/k8s`
+
+**YAML Equivalent:**
 ```yaml
 # In Build stage — publish artifact
 - task: PublishPipelineArtifact@1
@@ -1184,69 +1278,103 @@ stages:
                 kubectl get svc hello-world-aks-svc
 ```
 
-### Trigger the Pipeline
+### Trigger the Pipeline via GUI
 
+**Method 1: Push Code (Automatic Trigger)**
 ```bash
 # Make a change and push
 echo "# Updated" >> README.md
 git add .
 git commit -m "Trigger pipeline - deploy v2"
 git push origin main
-
-# Pipeline will automatically:
-# 1. Build Docker image with tag = BuildId
-# 2. Push to ACR
-# 3. Publish K8s manifests as pipeline artifact
-# 4. Download manifests in deploy stage
-# 5. Update image tag in deployment.yaml
-# 6. Deploy to AKS
-# 7. Wait for healthy rollout
 ```
+
+**Method 2: Manual Run via Azure DevOps Portal**
+1. Go to **Pipelines** → Your pipeline `hello-world-aks`
+2. Click **Run pipeline** button
+3. Select branch: `main`
+4. Click **Run**
+
+**Method 3: Scheduled Trigger (GUI Configuration)**
+1. Edit pipeline → **Triggers** tab
+2. Enable **Scheduled** trigger
+3. Add schedule: Daily at 8 AM
+4. Save
+
+**Pipeline will automatically:**
+1. Build Docker image with tag = BuildId
+2. Push to ACR
+3. Publish K8s manifests as pipeline artifact
+4. Download manifests in deploy stage
+5. Update image tag in deployment.yaml
+6. Deploy to AKS
+7. Wait for healthy rollout
 
 ---
 
 ## Part I — Verification & Troubleshooting
 
-### Verify Everything Works
+### Verify Everything Works via GUI
 
-```bash
-# 1. Check ACR has the image
-az acr repository show-tags --name acrhelloaksdev --repository hello-world-aks -o table
+**1. Check ACR has the image (Azure Portal)**
+- Go to ACR `acrhelloaksdev` → **Repositories**
+- Click `hello-world-aks` repository
+- Should see tags: `latest` and build number (e.g., `42`)
 
-# 2. Check AKS pods are running
-kubectl get pods -l app=hello-world-aks
-# Both pods should be Running, 1/1 Ready
+**2. Check AKS pods are running (Azure Portal)**
+- Go to AKS `aks-hello-dev` → **Workloads**
+- Click **Deployments** → `hello-world-aks`
+- Should show 2 pods, both **Ready**
+- Click **Pods** tab to see individual pods
 
-# 3. Check service has external IP
-kubectl get svc hello-world-aks-svc
-# EXTERNAL-IP should be assigned (not <pending>)
+**3. Check service has external IP (Azure Portal)**
+- Go to AKS → **Services and ingresses**
+- Click `hello-world-aks-svc`
+- **External IP** should show an IP address (not `<pending>`)
 
-# 4. Test the app
-EXTERNAL_IP=$(kubectl get svc hello-world-aks-svc -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-curl http://$EXTERNAL_IP
-# {"message":"Hello World from AKS!","version":"1.0.0",...}
+**4. Test the app (Browser)**
+- Copy **External IP** from above
+- Open browser to `http://EXTERNAL_IP`
+- Should see: `{"message":"Hello World from AKS!","version":"1.0.0",...}`
 
-# 5. Check identity is correct (no system-assigned)
-az aks show -n aks-hello-dev -g rg-hello-aks-dev --query "identity.type" -o tsv
-# Output: UserAssigned
+**5. Check identity is correct (Azure Portal)**
+- Go to AKS → **Properties**
+- **Identity type**: Should show **User assigned**
+- **User assigned identities**: Should list `id-aks-hello-dev`
 
-# 6. Check Azure Artifacts feed
-# Go to Azure DevOps → Artifacts → hello-world-npm-feed
-# You should see @myorg/shared-logger@1.0.0
-```
+**6. Check Azure Artifacts feed (Azure DevOps Portal)**
+- Go to **Artifacts** → `hello-world-npm-feed`
+- Should see `@myorg/shared-logger@1.0.0` package
 
-### Common Issues & Fixes
+**7. Check Pipeline Run (Azure DevOps Portal)**
+- Go to **Pipelines** → Recent runs
+- Click on latest run → Should show **Succeeded** for both stages
 
-| Issue | Cause | Fix |
+### Common Issues & Fixes (GUI Solutions)
+
+| Issue | Cause | GUI Fix |
 |---|---|---|
-| `ImagePullBackOff` | AKS can't pull from ACR | Verify AcrPull role: `az role assignment list --assignee $IDENTITY_PRINCIPAL_ID --scope $ACR_ID` |
-| `ErrImagePull` | Wrong image name/tag | Check: `kubectl describe pod <pod-name>` and verify image path |
-| `EXTERNAL-IP: <pending>` | LoadBalancer not provisioned yet | Wait 2-3 minutes, or check: `kubectl describe svc hello-world-aks-svc` |
-| Pipeline fails at Docker push | Missing Docker service connection | Create Docker Registry service connection named `acrhelloaksdev` |
-| `npm ERR! 401 Unauthorized` | Azure Artifacts auth failed | Re-run `npx vsts-npm-auth -config .npmrc` or check PAT expiry |
-| Identity type shows `SystemAssigned` | Didn't pass `--assign-identity` flag | Recreate cluster with `--assign-identity` and `--assign-kubelet-identity` |
+| `ImagePullBackOff` | AKS can't pull from ACR | **Portal**: ACR → IAM → Verify `id-aks-hello-dev` has `AcrPull` role |
+| `ErrImagePull` | Wrong image name/tag | **Portal**: AKS → Workloads → Pods → Click pod → Check **Events** tab |
+| `EXTERNAL-IP: <pending>` | LoadBalancer not provisioning | **Portal**: AKS → Services → Click service → Wait 2-3 min or check **Events** |
+| Pipeline fails at Docker push | Missing Docker service connection | **DevOps**: Project Settings → Service connections → Create Docker Registry connection |
+| `npm ERR! 401 Unauthorized` | Azure Artifacts auth failed | **DevOps**: User Settings → PATs → Create new token with Packaging scope |
+| Identity shows `SystemAssigned` | Wrong identity configuration | **Portal**: Recreate AKS with **User assigned** identity selected |
+| Pipeline fails at AKS deploy | Missing Azure service connection | **DevOps**: Project Settings → Service connections → Create Azure Resource Manager connection |
+| Docker build fails | Missing .npmrc in Docker context | **Pipeline**: Add `COPY .npmrc .` before `RUN npm ci` in Dockerfile |
+| No packages in Artifacts feed | Not authenticated | **DevOps**: Artifacts → Feed → Connect to feed → Follow npm setup |
 
-### Useful kubectl Commands
+**GUI Troubleshooting Tips:**
+1. **Azure Portal Activity Log**: Check for errors in resource creation
+2. **AKS Insights**: Go to AKS → **Insights** for health metrics
+3. **Pipeline Logs**: Click on failed task → **View logs** for detailed error
+4. **Service Connection Test**: DevOps → Service connections → Click connection → **Test** button
+
+### Useful kubectl Commands (via Azure Cloud Shell)
+
+**Using Azure Cloud Shell for kubectl:**
+1. Open **Azure Cloud Shell** (`>_` icon in portal)
+2. Run kubectl commands:
 
 ```bash
 # View pod logs
@@ -1264,6 +1392,23 @@ kubectl rollout history deployment/hello-world-aks
 # Rollback to previous version
 kubectl rollout undo deployment/hello-world-aks
 ```
+
+**GUI Alternatives in Azure Portal:**
+
+| kubectl Command | Portal Equivalent |
+|---|---|
+| `kubectl get pods` | AKS → Workloads → Pods |
+| `kubectl logs` | AKS → Workloads → Pods → Click pod → **Logs** tab |
+| `kubectl describe` | AKS → Workloads → Pods → Click pod → **Events** tab |
+| `kubectl scale` | AKS → Workloads → Deployments → Click deployment → **Scale** button |
+| `kubectl rollout history` | AKS → Workloads → Deployments → Click deployment → **Revision history** |
+| `kubectl get svc` | AKS → Services and ingresses |
+
+**Azure Monitor for Containers (Advanced GUI):**
+- Go to AKS → **Insights**
+- View pod metrics, logs, health
+- Set up alerts
+- Performance monitoring
 
 ---
 
@@ -1293,6 +1438,36 @@ kubectl rollout undo deployment/hello-world-aks
 | Azure Artifacts | Private package feeds (npm, NuGet, etc.) for team sharing |
 | Pipeline Artifacts | Temporary files passed between pipeline stages |
 | Upstream Sources | Azure Artifacts proxies npmjs.com for caching & security |
+
+---
+
+## GUI vs CLI: Key Benefits
+
+| Aspect | GUI (Portal) | CLI (Command Line) |
+|---|---|---|
+| **Learning Curve** | Easier for beginners | Steeper learning curve |
+| **Visual Feedback** | Real-time progress bars, status indicators | Text output only |
+| **Error Discovery** | Visual error messages, activity logs | Parse error messages |
+| **Resource Browsing** | Click-through navigation | Need to know exact resource names |
+| **Role Assignment** | Visual IAM interface | Command syntax required |
+| **Pipeline Creation** | Drag-and-drop editor | YAML file editing |
+| **Debugging** | Integrated logs, events view | Manual log inspection |
+
+## When to Use GUI vs CLI
+
+**Use GUI when:**
+- Learning Azure/AKS concepts
+- Setting up initial infrastructure
+- Debugging permission/role issues
+- Creating one-off resources
+- Visualizing resource relationships
+
+**Use CLI when:**
+- Automating deployments (CI/CD)
+- Scripting repetitive tasks
+- Working in headless environments
+- Need precise control over parameters
+- Infrastructure as Code (IaC)
 
 ---
 
