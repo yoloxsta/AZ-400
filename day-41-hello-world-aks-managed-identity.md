@@ -1706,4 +1706,637 @@ kubectl rollout undo deployment/hello-world-aks
 
 ---
 
+## Part J — Multi-Environment Pipeline with Approval Gates (Dev → UAT → Prod)
+
+### Overview
+
+This section adds a production-ready CI/CD pipeline with environment approval gates. Each environment (Dev, UAT, Prod) requires manual approval before deployment, ensuring controlled releases.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    Multi-Environment Pipeline Flow                           │
+│                                                                             │
+│  ┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐          │
+│  │  Build   │────▶│   Dev    │────▶│   UAT    │────▶│   Prod   │          │
+│  │  Stage   │     │ Deploy   │     │ Deploy   │     │ Deploy   │          │
+│  └──────────┘     └──────────┘     └──────────┘     └──────────┘          │
+│                         │                │                │                │
+│                         ▼                ▼                ▼                │
+│                   ┌──────────┐     ┌──────────┐     ┌──────────┐          │
+│                   │  Auto    │     │ Approval │     │ Approval │          │
+│                   │  Deploy  │     │  Gate    │     │  Gate    │          │
+│                   └──────────┘     └──────────┘     └──────────┘          │
+│                                        │                │                  │
+│                                        ▼                ▼                  │
+│                                   Approver:         Approver:             │
+│                                   Tech Lead         Release Manager       │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Architecture: Separate AKS Clusters per Environment
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           Azure Infrastructure                               │
+│                                                                             │
+│  ┌─────────────────────┐  ┌─────────────────────┐  ┌─────────────────────┐ │
+│  │    DEV Environment   │  │    UAT Environment   │  │   PROD Environment  │ │
+│  │                     │  │                     │  │                     │ │
+│  │  rg-hello-aks-dev   │  │  rg-hello-aks-uat   │  │  rg-hello-aks-prod  │ │
+│  │  ├── aks-hello-dev  │  │  ├── aks-hello-uat  │  │  ├── aks-hello-prod │ │
+│  │  ├── acrhelloaksdev │  │  ├── acrhelloaksuat │  │  ├── acrhelloaksprod│ │
+│  │  └── id-aks-hello   │  │  └── id-aks-hello   │  │  └── id-aks-hello   │ │
+│  │      -dev           │  │      -uat           │  │      -prod          │ │
+│  └─────────────────────┘  └─────────────────────┘  └─────────────────────┘ │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │              Shared ACR (Alternative: Single ACR)                    │   │
+│  │              acrhelloaks.azurecr.io                                 │   │
+│  │              ├── hello-world-aks:dev-123                           │   │
+│  │              ├── hello-world-aks:uat-123                           │   │
+│  │              └── hello-world-aks:prod-123                          │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Step 1: Create Environments in Azure DevOps (GUI)
+
+#### Create Dev Environment
+
+1. Go to **Azure DevOps** → **Pipelines** → **Environments**
+2. Click **New environment**
+3. Configure:
+   - **Name**: `dev`
+   - **Description**: "Development environment for Hello World AKS"
+   - **Resource**: **None** (we'll use it for approvals only)
+4. Click **Create**
+
+#### Create UAT Environment with Approval Gate
+
+1. Click **New environment**
+2. Configure:
+   - **Name**: `uat`
+   - **Description**: "UAT environment - requires approval"
+   - **Resource**: **None**
+3. Click **Create**
+4. After creation, click on `uat` environment
+5. Click **⋯** (three dots) → **Approvals and checks**
+6. Click **+ Add check** → Select **Approvals**
+7. Configure:
+   - **Approvers**: Add Tech Lead / Senior Developer (search by name or group)
+   - **Minimum number of approvers**: `1`
+   - **Allow approvers to approve their own runs**: Unchecked
+   - **Timeout**: `7 days` (default)
+8. Click **Create**
+
+#### Create Prod Environment with Approval Gate
+
+1. Click **New environment**
+2. Configure:
+   - **Name**: `prod`
+   - **Description**: "Production environment - requires approval"
+   - **Resource**: **None**
+3. Click **Create**
+4. After creation, click on `prod` environment
+5. Click **⋯** (three dots) → **Approvals and checks**
+6. Click **+ Add check** → Select **Approvals**
+7. Configure:
+   - **Approvers**: Add Release Manager / DevOps Lead
+   - **Minimum number of approvers**: `2` (require 2 people for production)
+   - **Allow approvers to approve their own runs**: Unchecked
+   - **Timeout**: `7 days`
+8. Click **Create**
+
+### Step 2: Add Additional Checks (Optional but Recommended)
+
+For UAT and Prod environments, add these checks:
+
+#### Add Branch Control Check
+
+1. Go to environment → **Approvals and checks**
+2. Click **+ Add check** → Select **Branch control**
+3. Configure:
+   - **Allowed branches**: `refs/heads/main`
+   - **Require branch protection**: Checked
+4. Click **Create**
+
+#### Add Business Hours Check (Prod Only)
+
+1. Go to `prod` environment → **Approvals and checks**
+2. Click **+ Add check** → Select **Business hours**
+3. Configure:
+   - **Time zone**: Your timezone
+   - **Business hours**: Mon-Fri 9:00 AM - 5:00 PM
+4. Click **Create**
+
+### Step 3: Multi-Environment Pipeline YAML
+
+Create `azure-pipelines-multi-env.yml`:
+
+```yaml
+# azure-pipelines-multi-env.yml
+# Multi-Environment Pipeline with Approval Gates (Dev → UAT → Prod)
+
+trigger:
+  branches:
+    include:
+      - main
+
+variables:
+  # Shared variables
+  acrName: "acrhelloaksdev"
+  acrLoginServer: "acrhelloaksdev.azurecr.io"
+  imageName: "hello-world-aks"
+  azureSubscription: "azure-sub-connection"
+  tag: "$(Build.BuildId)"
+
+  # Environment-specific variables (can also use variable groups)
+  devResourceGroup: "rg-hello-aks-dev"
+  devAksCluster: "aks-hello-dev"
+  uatResourceGroup: "rg-hello-aks-uat"
+  uatAksCluster: "aks-hello-uat"
+  prodResourceGroup: "rg-hello-aks-prod"
+  prodAksCluster: "aks-hello-prod"
+
+stages:
+  # ═══════════════════════════════════════════════════════════════
+  # STAGE 1: BUILD & PUSH TO ACR
+  # ═══════════════════════════════════════════════════════════════
+  - stage: Build
+    displayName: "🔨 Build & Push Image"
+    jobs:
+      - job: BuildAndPush
+        displayName: "Build & Push Docker Image"
+        pool:
+          vmImage: "ubuntu-latest"
+        steps:
+          - task: Docker@2
+            displayName: "Build & Push Docker Image to ACR"
+            inputs:
+              containerRegistry: $(acrName)
+              repository: $(imageName)
+              command: buildAndPush
+              Dockerfile: "**/Dockerfile"
+              tags: |
+                $(tag)
+                latest
+
+          - task: PublishPipelineArtifact@1
+            displayName: "Publish K8s Manifests"
+            inputs:
+              targetPath: "$(System.DefaultWorkingDirectory)/k8s"
+              artifact: "k8s-manifests"
+
+  # ═══════════════════════════════════════════════════════════════
+  # STAGE 2: DEPLOY TO DEV (Auto-deploy after build)
+  # ═══════════════════════════════════════════════════════════════
+  - stage: Deploy_Dev
+    displayName: "🚀 Deploy to DEV"
+    dependsOn: Build
+    jobs:
+      - deployment: DeployToDev
+        displayName: "Deploy to DEV AKS"
+        environment: "dev"  # References the 'dev' environment
+        pool:
+          vmImage: "ubuntu-latest"
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: DownloadPipelineArtifact@2
+                  displayName: "Download K8s Manifests"
+                  inputs:
+                    artifact: "k8s-manifests"
+                    targetPath: "$(Pipeline.Workspace)/k8s"
+
+                - task: Bash@3
+                  displayName: "Update Image Tag for DEV"
+                  inputs:
+                    targetType: inline
+                    script: |
+                      sed -i 's|acrhelloaksdev.azurecr.io/hello-world-aks:.*|acrhelloaksdev.azurecr.io/hello-world-aks:$(tag)|g' \
+                        $(Pipeline.Workspace)/k8s/deployment.yaml
+                      echo "Updated deployment.yaml for DEV"
+
+                - task: AzureCLI@2
+                  displayName: "Deploy to DEV AKS"
+                  inputs:
+                    azureSubscription: $(azureSubscription)
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      az aks get-credentials \
+                        --resource-group $(devResourceGroup) \
+                        --name $(devAksCluster) \
+                        --overwrite-existing
+
+                      kubectl apply -f $(Pipeline.Workspace)/k8s/deployment.yaml
+                      kubectl apply -f $(Pipeline.Workspace)/k8s/service.yaml
+
+                      echo "Waiting for DEV rollout..."
+                      kubectl rollout status deployment/hello-world-aks --timeout=180s
+
+                      echo ""
+                      echo "════════════════════════════════════════"
+                      echo "  DEV DEPLOYMENT SUCCESSFUL"
+                      echo "════════════════════════════════════════"
+                      kubectl get pods -l app=hello-world-aks -o wide
+                      kubectl get svc hello-world-aks-svc
+
+  # ═══════════════════════════════════════════════════════════════
+  # STAGE 3: DEPLOY TO UAT (Requires Approval)
+  # ═══════════════════════════════════════════════════════════════
+  - stage: Deploy_UAT
+    displayName: "🧪 Deploy to UAT"
+    dependsOn: Deploy_Dev
+    jobs:
+      - deployment: DeployToUAT
+        displayName: "Deploy to UAT AKS"
+        environment: "uat"  # References the 'uat' environment with approval gate
+        pool:
+          vmImage: "ubuntu-latest"
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: DownloadPipelineArtifact@2
+                  displayName: "Download K8s Manifests"
+                  inputs:
+                    artifact: "k8s-manifests"
+                    targetPath: "$(Pipeline.Workspace)/k8s"
+
+                - task: Bash@3
+                  displayName: "Update Image Tag for UAT"
+                  inputs:
+                    targetType: inline
+                    script: |
+                      sed -i 's|acrhelloaksdev.azurecr.io/hello-world-aks:.*|acrhelloaksdev.azurecr.io/hello-world-aks:$(tag)|g' \
+                        $(Pipeline.Workspace)/k8s/deployment.yaml
+                      echo "Updated deployment.yaml for UAT"
+
+                - task: AzureCLI@2
+                  displayName: "Deploy to UAT AKS"
+                  inputs:
+                    azureSubscription: $(azureSubscription)
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      az aks get-credentials \
+                        --resource-group $(uatResourceGroup) \
+                        --name $(uatAksCluster) \
+                        --overwrite-existing
+
+                      kubectl apply -f $(Pipeline.Workspace)/k8s/deployment.yaml
+                      kubectl apply -f $(Pipeline.Workspace)/k8s/service.yaml
+
+                      echo "Waiting for UAT rollout..."
+                      kubectl rollout status deployment/hello-world-aks --timeout=180s
+
+                      echo ""
+                      echo "════════════════════════════════════════"
+                      echo "  UAT DEPLOYMENT SUCCESSFUL"
+                      echo "════════════════════════════════════════"
+                      kubectl get pods -l app=hello-world-aks -o wide
+                      kubectl get svc hello-world-aks-svc
+
+  # ═══════════════════════════════════════════════════════════════
+  # STAGE 4: DEPLOY TO PROD (Requires Approval)
+  # ═══════════════════════════════════════════════════════════════
+  - stage: Deploy_Prod
+    displayName: "🏭 Deploy to PROD"
+    dependsOn: Deploy_UAT
+    jobs:
+      - deployment: DeployToProd
+        displayName: "Deploy to PROD AKS"
+        environment: "prod"  # References the 'prod' environment with approval gate
+        pool:
+          vmImage: "ubuntu-latest"
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: DownloadPipelineArtifact@2
+                  displayName: "Download K8s Manifests"
+                  inputs:
+                    artifact: "k8s-manifests"
+                    targetPath: "$(Pipeline.Workspace)/k8s"
+
+                - task: Bash@3
+                  displayName: "Update Image Tag for PROD"
+                  inputs:
+                    targetType: inline
+                    script: |
+                      sed -i 's|acrhelloaksdev.azurecr.io/hello-world-aks:.*|acrhelloaksdev.azurecr.io/hello-world-aks:$(tag)|g' \
+                        $(Pipeline.Workspace)/k8s/deployment.yaml
+                      echo "Updated deployment.yaml for PROD"
+
+                - task: AzureCLI@2
+                  displayName: "Deploy to PROD AKS"
+                  inputs:
+                    azureSubscription: $(azureSubscription)
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      az aks get-credentials \
+                        --resource-group $(prodResourceGroup) \
+                        --name $(prodAksCluster) \
+                        --overwrite-existing
+
+                      kubectl apply -f $(Pipeline.Workspace)/k8s/deployment.yaml
+                      kubectl apply -f $(Pipeline.Workspace)/k8s/service.yaml
+
+                      echo "Waiting for PROD rollout..."
+                      kubectl rollout status deployment/hello-world-aks --timeout=180s
+
+                      echo ""
+                      echo "════════════════════════════════════════"
+                      echo "  PROD DEPLOYMENT SUCCESSFUL"
+                      echo "════════════════════════════════════════"
+                      kubectl get pods -l app=hello-world-aks -o wide
+                      kubectl get svc hello-world-aks-svc
+```
+
+### Step 4: Using Variable Groups for Environment Configuration
+
+For better security and organization, use variable groups instead of hardcoding values.
+
+#### Create Variable Groups via GUI
+
+1. Go to **Pipelines** → **Library** (left sidebar)
+2. Click **+ Variable group**
+
+**Create `vg-dev-config`:**
+| Name | Value |
+|---|---|
+| resourceGroup | rg-hello-aks-dev |
+| aksCluster | aks-hello-dev |
+| acrName | acrhelloaksdev |
+
+**Create `vg-uat-config`:**
+| Name | Value |
+|---|---|
+| resourceGroup | rg-hello-aks-uat |
+| aksCluster | aks-hello-uat |
+| acrName | acrhelloaksuat |
+
+**Create `vg-prod-config`:**
+| Name | Value |
+|---|---|
+| resourceGroup | rg-hello-aks-prod |
+| aksCluster | aks-hello-prod |
+| acrName | acrhelloaksprod |
+
+#### Updated Pipeline with Variable Groups
+
+```yaml
+# azure-pipelines-multi-env-vg.yml
+trigger:
+  branches:
+    include:
+      - main
+
+variables:
+  - name: acrLoginServer
+    value: "acrhelloaksdev.azurecr.io"
+  - name: imageName
+    value: "hello-world-aks"
+  - name: azureSubscription
+    value: "azure-sub-connection"
+  - name: tag
+    value: "$(Build.BuildId)"
+
+stages:
+  - stage: Build
+    displayName: "🔨 Build & Push Image"
+    jobs:
+      - job: BuildAndPush
+        pool:
+          vmImage: "ubuntu-latest"
+        steps:
+          - task: Docker@2
+            inputs:
+              containerRegistry: "acrhelloaksdev"
+              repository: $(imageName)
+              command: buildAndPush
+              Dockerfile: "**/Dockerfile"
+              tags: |
+                $(tag)
+                latest
+
+          - task: PublishPipelineArtifact@1
+            inputs:
+              targetPath: "$(System.DefaultWorkingDirectory)/k8s"
+              artifact: "k8s-manifests"
+
+  - stage: Deploy_Dev
+    displayName: "🚀 Deploy to DEV"
+    dependsOn: Build
+    variables:
+      - group: vg-dev-config
+    jobs:
+      - deployment: DeployToDev
+        environment: "dev"
+        pool:
+          vmImage: "ubuntu-latest"
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: k8s-manifests
+
+                - task: AzureCLI@2
+                  inputs:
+                    azureSubscription: $(azureSubscription)
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      sed -i 's|acrhelloaksdev.azurecr.io/hello-world-aks:.*|acrhelloaksdev.azurecr.io/hello-world-aks:$(tag)|g' \
+                        $(Pipeline.Workspace)/k8s/deployment.yaml
+
+                      az aks get-credentials -g $(resourceGroup) -n $(aksCluster) --overwrite-existing
+                      kubectl apply -f $(Pipeline.Workspace)/k8s/
+                      kubectl rollout status deployment/hello-world-aks --timeout=180s
+
+  - stage: Deploy_UAT
+    displayName: "🧪 Deploy to UAT"
+    dependsOn: Deploy_Dev
+    variables:
+      - group: vg-uat-config
+    jobs:
+      - deployment: DeployToUAT
+        environment: "uat"
+        pool:
+          vmImage: "ubuntu-latest"
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: k8s-manifests
+
+                - task: AzureCLI@2
+                  inputs:
+                    azureSubscription: $(azureSubscription)
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      sed -i 's|acrhelloaksdev.azurecr.io/hello-world-aks:.*|acrhelloaksdev.azurecr.io/hello-world-aks:$(tag)|g' \
+                        $(Pipeline.Workspace)/k8s/deployment.yaml
+
+                      az aks get-credentials -g $(resourceGroup) -n $(aksCluster) --overwrite-existing
+                      kubectl apply -f $(Pipeline.Workspace)/k8s/
+                      kubectl rollout status deployment/hello-world-aks --timeout=180s
+
+  - stage: Deploy_Prod
+    displayName: "🏭 Deploy to PROD"
+    dependsOn: Deploy_UAT
+    variables:
+      - group: vg-prod-config
+    jobs:
+      - deployment: DeployToProd
+        environment: "prod"
+        pool:
+          vmImage: "ubuntu-latest"
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: k8s-manifests
+
+                - task: AzureCLI@2
+                  inputs:
+                    azureSubscription: $(azureSubscription)
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      sed -i 's|acrhelloaksdev.azurecr.io/hello-world-aks:.*|acrhelloaksdev.azurecr.io/hello-world-aks:$(tag)|g' \
+                        $(Pipeline.Workspace)/k8s/deployment.yaml
+
+                      az aks get-credentials -g $(resourceGroup) -n $(aksCluster) --overwrite-existing
+                      kubectl apply -f $(Pipeline.Workspace)/k8s/
+                      kubectl rollout status deployment/hello-world-aks --timeout=180s
+```
+
+### Step 5: Approval Workflow (GUI)
+
+When a pipeline reaches an environment with an approval gate:
+
+1. **Pipeline Pauses**: The pipeline shows "Waiting for approval"
+2. **Email Notification**: Approvers receive an email notification
+3. **Approve via GUI**:
+   - Go to **Pipelines** → Click on the running pipeline
+   - Click on the stage waiting for approval (e.g., "Deploy to UAT")
+   - Click **Review** button
+   - Add a comment (optional but recommended)
+   - Click **Approve** or **Reject**
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         Approval Workflow                                    │
+│                                                                             │
+│  Pipeline Run #123                                                          │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐                   │
+│  │  Build   │─▶│Deploy Dev│─▶│Deploy UAT│─▶│Deploy    │                   │
+│  │  ✓       │  │  ✓       │  │  ⏳      │  │  Prod    │                   │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘                   │
+│                                     │                                       │
+│                                     ▼                                       │
+│                           ┌─────────────────────┐                          │
+│                           │  Waiting for        │                          │
+│                           │  Approval           │                          │
+│                           │                     │                          │
+│                           │  Approvers:         │                          │
+│                           │  • John Doe         │                          │
+│                           │  • Jane Smith       │                          │
+│                           │                     │                          │
+│                           │  [Review] [Reject]  │                          │
+│                           └─────────────────────┘                          │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Step 6: Pipeline View in Azure DevOps
+
+After setting up, your pipeline will show:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  Pipeline: hello-world-aks-multi-env                                        │
+│  Run #123 · main · Triggered by John Doe                                    │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  🔨 Build & Push Image                                    ✓ 2m 34s  │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                              │                                              │
+│                              ▼                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  🚀 Deploy to DEV                                         ✓ 1m 12s  │   │
+│  │  Environment: dev (auto-deploy)                                      │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                              │                                              │
+│                              ▼                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  🧪 Deploy to UAT                                         ⏳ Waiting │   │
+│  │  Environment: uat (approval required)                                │   │
+│  │  ─────────────────────────────────────────────────────────────────  │   │
+│  │  Waiting for approval from:                                          │   │
+│  │  • John Doe (john.doe@company.com)                                   │   │
+│  │  • Jane Smith (jane.smith@company.com)                               │   │
+│  │                                                                      │   │
+│  │  [Review] [Reject]                                                   │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                              │                                              │
+│                              ▼ (after approval)                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  🏭 Deploy to PROD                                        ○ Pending  │   │
+│  │  Environment: prod (approval required)                               │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Step 7: Best Practices for Approval Gates
+
+| Practice | Description |
+|---|---|
+| **Minimum 2 approvers for Prod** | Prevents single point of failure and ensures peer review |
+| **Different approvers per environment** | UAT approvers should differ from Prod approvers |
+| **Add comments when approving** | Document why the deployment was approved |
+| **Set reasonable timeouts** | 7 days default; adjust based on release cadence |
+| **Use branch control** | Only allow deployments from protected branches |
+| **Business hours for Prod** | Avoid deployments outside working hours |
+| **Notification settings** | Ensure approvers have email notifications enabled |
+
+### Step 8: Additional Check Types
+
+Azure DevOps supports multiple check types:
+
+| Check Type | Purpose | Use Case |
+|---|---|---|
+| **Approvals** | Require manual sign-off | All non-dev environments |
+| **Branch control** | Restrict to specific branches | Prod should only deploy from main |
+| **Business hours** | Restrict deployment times | Prod deployments during business hours |
+| **Evaluate artifact** | Validate artifact properties | Check version format, run tests |
+| **Exclusive lock** | Prevent concurrent deployments | Critical environments |
+| **Invoke Azure Function** | Custom validation | Run integration tests, security scans |
+| **REST API check** | External system validation | ITSM ticket approval, change management |
+
+### Step 9: Adding an Exclusive Lock Check (Prod)
+
+To prevent multiple deployments to Prod at the same time:
+
+1. Go to `prod` environment → **Approvals and checks**
+2. Click **+ Add check** → Select **Exclusive lock**
+3. Configure:
+   - **Lock timeout**: `60 minutes`
+4. Click **Create**
+
+This ensures only one deployment can run at a time.
+
+---
+
 > **Next:** Day 42 — Add Helm charts, Ingress Controller, and multi-environment (dev/staging/prod) deployment with approval gates.
