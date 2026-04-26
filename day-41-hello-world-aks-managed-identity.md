@@ -4,7 +4,6 @@
 > **⚠️ GUI-FOCUSED GUIDE:** This version uses Azure Portal (portal.azure.com) and Azure DevOps Portal (dev.azure.com) interfaces instead of CLI commands. All steps include screenshots references, button locations, and visual workflows.
 
 ## Table of Contents
-
 1. [Architecture Overview](#1-architecture-overview)
 2. [Prerequisites](#2-prerequisites)
 3. [Part A — Create the Hello World Application](#part-a--create-the-hello-world-application)
@@ -20,7 +19,6 @@
 13. [Summary & Key Takeaways](#summary--key-takeaways)
 
 ---
-
 ## 1. Architecture Overview
 
 ```
