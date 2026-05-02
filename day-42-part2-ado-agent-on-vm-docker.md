@@ -281,6 +281,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gnupg \
     software-properties-common \
     sudo \
+    iputils-ping \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Azure CLI
@@ -313,8 +314,9 @@ RUN useradd -m -s /bin/bash azureuser \
 
 WORKDIR /home/azureuser/agent
 
-# Download Azure DevOps Agent
-RUN curl -sL https://vstsagentpackage.azureedge.net/agent/3.242.0/vsts-agent-linux-x64-3.242.0.tar.gz | tar xz
+# Download Azure DevOps Agent from new CDN (old domain vstsagentpackage.azureedge.net retired June 2025)
+RUN curl -L -o agent.tar.gz "https://download.agent.dev.azure.com/agent/4.273.0/vsts-agent-linux-x64-4.273.0.tar.gz" \
+    && tar xzf agent.tar.gz && rm agent.tar.gz
 
 # Change ownership
 RUN chown -R azureuser:azureuser /home/azureuser
