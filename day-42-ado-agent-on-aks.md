@@ -3,6 +3,11 @@
 
 > **🎯 Objective:** Deploy and configure Azure DevOps self-hosted agents on Azure Kubernetes Service (AKS) for scalable, containerized CI/CD pipelines.
 
+> **⚠️ Important Note (June 2025):** The old domain `vstsagentpackage.azureedge.net` has been retired. Use the new CDN domain:
+> - **Old:** `vstsagentpackage.azureedge.net` (retired)
+> - **New:** `download.agent.dev.azure.com`
+> - Example URL: `https://download.agent.dev.azure.com/agent/4.273.0/vsts-agent-linux-x64-4.273.0.tar.gz`
+
 ---
 
 ## Table of Contents
@@ -278,6 +283,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gnupg \
     software-properties-common \
     sudo \
+    iputils-ping \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Azure CLI
@@ -319,8 +325,9 @@ RUN useradd -m -s /bin/bash azureuser \
 # Create working directory
 WORKDIR /home/azureuser/agent
 
-# Download Azure DevOps Agent
-RUN curl -sL https://vstsagentpackage.azureedge.net/agent/3.242.0/vsts-agent-linux-x64-3.242.0.tar.gz | tar xz
+# Download Azure DevOps Agent from new CDN (old domain retired June 2025)
+RUN curl -L -o agent.tar.gz "https://download.agent.dev.azure.com/agent/4.273.0/vsts-agent-linux-x64-4.273.0.tar.gz" \
+    && tar xzf agent.tar.gz && rm agent.tar.gz
 
 # Change ownership
 RUN chown -R azureuser:azureuser /home/azureuser

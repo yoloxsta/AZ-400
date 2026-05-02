@@ -3,6 +3,11 @@
 
 > **🎯 Objective:** Deploy Azure DevOps self-hosted agents as Docker containers on an Azure VM for CI/CD pipelines.
 
+> **⚠️ Important Note (June 2025):** The old domain `vstsagentpackage.azureedge.net` has been retired. Use the new CDN domain:
+> - **Old:** `vstsagentpackage.azureedge.net` (retired)
+> - **New:** `download.agent.dev.azure.com`
+> - Example URL: `https://download.agent.dev.azure.com/agent/4.273.0/vsts-agent-linux-x64-4.273.0.tar.gz`
+
 ---
 
 ## Table of Contents
@@ -389,6 +394,12 @@ cleanup() {
 }
 
 trap cleanup SIGTERM SIGINT SIGPIPE
+
+# Remove existing configuration if present (handles container restart)
+if [ -f .agent ]; then
+    echo "Removing existing agent configuration..."
+    ./config.sh remove --unattended --auth pat --token "$AZP_TOKEN" 2>/dev/null || true
+fi
 
 # Configure the agent
 echo "Configuring agent..."
