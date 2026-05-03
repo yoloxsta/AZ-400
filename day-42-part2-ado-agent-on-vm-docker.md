@@ -1082,3 +1082,123 @@ docker inspect ado-agent-1
 ---
 
 > **Completed:** You now have containerized Azure DevOps agents running on your VM, ready for CI/CD pipelines!
+
+```
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV AZP_URL=""
+ENV AZP_TOKEN=""
+ENV AZP_POOL=""
+ENV AZP_AGENT_NAME=""
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl jq git git-lfs unzip wget \
+    apt-transport-https lsb-release gnupg software-properties-common sudo \
+    iputils-ping \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl -sL https://aka.ms/InstallAzureCLIDeb | bash
+
+RUN az aks install-cli
+
+RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" \
+    | tee /etc/apt/sources.list.d/docker.list > /dev/null \
+    && apt-get update \
+    && apt-get install -y docker-ce-cli \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN useradd -m -s /bin/bash azureuser \
+    && echo "azureuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+WORKDIR /home/azureuser/agent
+
+RUN curl -L -o agent.tar.gz "https://download.agent.dev.azure.com/agent/4.273.0/vsts-agent-linux-x64-4.273.0.tar.gz" \
+    && tar xzf agent.tar.gz \
+    && rm agent.tar.gz \
+    && ls -la
+
+RUN chown -R azureuser:azureuser /home/azureuser
+
+USER azureuser
+
+COPY start.sh .
+
+USER root
+RUN chmod +x start.sh
+
+USER azureuser
+
+ENTRYPOINT ["./start.sh"]
+```
+###
+```
+#!/bin/bash
+set -e
+
+echo "========================================"
+echo " Azure DevOps Agent Startup"
+echo "========================================"
+
+# Validate required env vars
+if [ -z "$AZP_URL" ]; then
+    echo "ERROR: AZP_URL not set"
+    exit 1
+fi
+
+if [ -z "$AZP_TOKEN" ]; then
+    echo "ERROR: AZP_TOKEN not set"
+    exit 1
+fi
+
+if [ -z "$AZP_POOL" ]; then
+    echo "ERROR: AZP_POOL not set"
+    exit 1
+fi
+
+if [ -z "$AZP_AGENT_NAME" ]; then
+    export AZP_AGENT_NAME=$(hostname)
+fi
+
+echo "URL: $AZP_URL"
+echo "Pool: $AZP_POOL"
+echo "Agent: $AZP_AGENT_NAME"
+
+# ================================
+# CLEAN OLD STATE (IMPORTANT FIX)
+# ================================
+echo "Cleaning previous agent state..."
+
+rm -rf .agent _work _diag || true
+
+# If config exists, try safe removal (ignore errors)
+if [ -f ./config.sh ]; then
+    ./config.sh remove --unattended \
+        --auth pat \
+        --token "$AZP_TOKEN" 2>/dev/null || true
+fi
+
+# ================================
+# CONFIGURE AGENT
+# ================================
+./config.sh --unattended \
+    --url "$AZP_URL" \
+    --auth pat \
+    --token "$AZP_TOKEN" \
+    --pool "$AZP_POOL" \
+    --agent "$AZP_AGENT_NAME" \
+    --acceptTeeEula \
+    --work "_work_docker"
+
+echo "Agent configured. Starting..."
+
+# ================================
+# RUN AGENT
+# ================================
+exec ./run.sh
+```
